@@ -1,11 +1,4 @@
-import {
-  CdkDrag,
-  CdkDropList,
-  CdkDropListGroup,
-  moveItemInArray,
-  transferArrayItem,
-  type CdkDragDrop,
-} from '@angular/cdk/drag-drop';
+import { CdkDrag, CdkDropList, CdkDropListGroup, moveItemInArray, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { Router, RouterLink } from '@angular/router';
@@ -33,10 +26,11 @@ import type {
 } from '../../core/models';
 import { RealtimeService, type EstadoConexao } from '../../core/realtime.service';
 import { ToastService } from '../../core/toast.service';
+import { AutoFoco } from '../../shared/auto-foco';
 import { Icone } from '../../shared/icone';
 import { Modal } from '../../shared/modal';
 import { SistemaForm } from '../sistemas/sistema-form';
-import { EtapasPainel, type ProgressoEtapa } from './etapas-painel';
+import { EtapasPainel, type MovimentoEtapa, type ProgressoEtapa } from './etapas-painel';
 import { ImportarCsv } from './importar-csv';
 import { ItemForm } from './item-form';
 import { ItemLinha } from './item-linha';
@@ -44,6 +38,8 @@ import { PainelMeta, situacaoDaMeta } from './painel-meta';
 
 type ModoOrdem = 'etapas' | 'numerica';
 type Filtro = 'TODOS' | StatusItem;
+
+type SelecaoGrupo = 'nenhum' | 'alguns' | 'todos';
 
 interface Grupo {
   id: string;
@@ -63,13 +59,14 @@ const TITULO_TIPO: Record<TipoItem, (n: number) => string> = {
   OBRIGATORIO: (n) => `${n} requisitos obrigatórios`,
   ESSENCIAL: (n) => `${n} requisitos essenciais`,
   COMPLEMENTAR: (n) => `${n} complementares · não entram no cálculo`,
+  DISPENSADO: (n) => `${n} dispensados da POC · não entram no cálculo`,
 };
 
 const CAMPOS_CSV: Record<string, string> = {
   numero: 'numeração',
   descricao: 'requisito',
   tipo: 'tipo',
-  categoria: 'etapa',
+  categoria: 'grupo',
   status: 'status',
   observacao: 'observação',
 };
@@ -81,6 +78,7 @@ const CAMPOS_CSV: Record<string, string> = {
     CdkDropListGroup,
     CdkDropList,
     CdkDrag,
+    AutoFoco,
     Icone,
     Modal,
     SistemaForm,
@@ -121,6 +119,14 @@ export class GerenciamentoPage {
   protected readonly itemEmEdicao = signal<Item | 'novo' | null>(null);
   protected readonly ultimaImportacao = signal<ResultadoImportacao | null>(null);
 
+  /** Itens marcados para mover em lote (só na visão por grupos). */
+  protected readonly selecionados = signal<ReadonlySet<string>>(new Set());
+  /** Grupos recolhidos na lista principal (por `Grupo.id`). */
+  protected readonly recolhidos = signal<ReadonlySet<string>>(new Set());
+  /** Nome digitado na barra de seleção para criar um grupo novo; `null` = campo fechado. */
+  protected readonly nomeNovoGrupo = signal<string | null>(null);
+  protected readonly movendoSelecao = signal(false);
+
   protected readonly formatarData = formatarData;
   protected readonly camposCsv = CAMPOS_CSV;
 
@@ -133,6 +139,7 @@ export class GerenciamentoPage {
   protected readonly situacao = computed(() => situacaoDaMeta(this.resumo(), this.meta()));
   protected readonly filtrando = computed(() => this.filtro() !== 'TODOS' || this.busca().trim() !== '');
   protected readonly podeArrastar = computed(() => this.modo() === 'etapas' && !this.filtrando());
+  protected readonly podeSelecionar = computed(() => this.modo() === 'etapas');
   protected readonly urlExportacao = computed(() => this.api.urlExportacao(this.id()));
   protected readonly colunasImportadas = computed(() => Object.entries(this.ultimaImportacao()?.colunas ?? {}));
 
@@ -166,19 +173,10 @@ export class GerenciamentoPage {
 
     let grupos: Grupo[];
     if (this.modo() === 'etapas') {
-      const categorias = this.categorias();
-      const existentes = new Set(categorias.map((c) => c.id));
-      const porEtapa = new Map<string, Item[]>();
-      const ordenados = [...this.itens()].sort((a, b) => a.ordem - b.ordem || compararNumero(a.numero, b.numero));
-      for (const item of ordenados) {
-        const chave = item.categoriaId && existentes.has(item.categoriaId) ? item.categoriaId : SEM_ETAPA;
-        const lista = porEtapa.get(chave) ?? [];
-        lista.push(item);
-        porEtapa.set(chave, lista);
-      }
-      grupos = categorias.map((c, i) => montar(c.id, c.id, i + 1, c.nome, porEtapa.get(c.id) ?? []));
-      const semEtapa = porEtapa.get(SEM_ETAPA);
-      if (semEtapa?.length) grupos.push(montar(SEM_ETAPA, null, null, 'Sem etapa definida', semEtapa));
+      const listas = this.listasPorEtapa();
+      grupos = this.categorias().map((c, i) => montar(c.id, c.id, i + 1, c.nome, listas.get(c.id) ?? []));
+      const semEtapa = listas.get(null);
+      if (semEtapa?.length) grupos.push(montar(SEM_ETAPA, null, null, 'Sem grupo', semEtapa));
     } else {
       const ordenados = [...this.itens()].sort((a, b) => compararNumero(a.numero, b.numero));
       grupos = ORDEM_TIPOS.map((tipo) => {
@@ -190,6 +188,37 @@ export class GerenciamentoPage {
     return this.filtrando() ? grupos.filter((g) => g.itens.length > 0) : grupos;
   });
 
+  /**
+   * Todos os itens (sem filtro) de cada grupo, na ordem de apresentação. A chave `null` reúne os itens
+   * sem grupo ou cujo grupo não existe mais. A ordem do Map é a ordem dos grupos na tela.
+   */
+  private readonly listasPorEtapa = computed(() => {
+    const listas = new Map<string | null, Item[]>(this.categorias().map((c) => [c.id, []]));
+    listas.set(null, []);
+    const ordenados = [...this.itens()].sort((a, b) => a.ordem - b.ordem || compararNumero(a.numero, b.numero));
+    for (const item of ordenados) {
+      const chave = item.categoriaId && listas.has(item.categoriaId) ? item.categoriaId : null;
+      listas.get(chave)!.push(item);
+    }
+    return listas;
+  });
+
+  protected readonly selecaoPorGrupo = computed(() => {
+    const selecionados = this.selecionados();
+    const estado = new Map<string, SelecaoGrupo>();
+    for (const grupo of this.grupos()) {
+      const marcados = grupo.itens.filter((i) => selecionados.has(i.id)).length;
+      estado.set(grupo.id, !marcados ? 'nenhum' : marcados === grupo.itens.length ? 'todos' : 'alguns');
+    }
+    return estado;
+  });
+
+  protected readonly todosRecolhidos = computed(() => {
+    const grupos = this.grupos();
+    const recolhidos = this.recolhidos();
+    return grupos.length > 0 && grupos.every((g) => recolhidos.has(g.id));
+  });
+
   protected readonly contagemImportacao = computed(() => {
     const r = this.ultimaImportacao();
     if (!r) return '';
@@ -197,21 +226,32 @@ export class GerenciamentoPage {
       plural(r.linhasLidas, 'linha lida', 'linhas lidas'),
       plural(r.criados, 'item criado', 'itens criados'),
       plural(r.atualizados, 'atualizado', 'atualizados'),
-      plural(r.categoriasCriadas.length, 'etapa criada', 'etapas criadas'),
+      plural(r.categoriasCriadas.length, 'grupo criado', 'grupos criados'),
+      ...(r.titulosIgnorados ? [plural(r.titulosIgnorados, 'título/subtítulo ignorado', 'títulos/subtítulos ignorados')] : []),
     ].join(' · ');
   });
 
   protected readonly notaCalculo = computed(() => {
     const { essenciais, obrigatorios } = this.resumo();
     const complementares = this.itens().filter((i) => i.tipo === 'COMPLEMENTAR').length;
+    const dispensados = this.itens().filter((i) => i.tipo === 'DISPENSADO').length;
     if (!essenciais.total) {
-      return 'Cálculo: essenciais atendidos ÷ total de essenciais. Pendentes não contam como atendidos; complementares ficam fora do percentual.';
+      return (
+        'Cálculo: essenciais atendidos ÷ total de essenciais. Pendentes não contam como atendidos; ' +
+        'complementares e dispensados da POC ficam fora do percentual.'
+      );
     }
+    const foraDoCalculo = [
+      complementares ? plural(complementares, 'item complementar', 'itens complementares') : '',
+      dispensados ? plural(dispensados, 'item dispensado da POC', 'itens dispensados da POC') : '',
+    ].filter(Boolean);
     return (
       `Cálculo: essenciais atendidos ÷ ${essenciais.total}. Pendentes não contam como atendidos. ` +
       `São necessários ${essenciais.minimo} de ${essenciais.total} (${formatarPercentual((essenciais.minimo / essenciais.total) * 100)})` +
       (obrigatorios.total ? ` e os ${obrigatorios.total} obrigatórios.` : '.') +
-      (complementares ? ` Os ${complementares} itens complementares não entram no percentual.` : '')
+      (foraDoCalculo.length
+        ? ` ${foraDoCalculo.join(' e ')} ${complementares + dispensados === 1 ? 'não entra' : 'não entram'} no percentual.`
+        : '')
     );
   });
 
@@ -227,6 +267,21 @@ export class GerenciamentoPage {
         });
       });
       onCleanup(desconectar);
+    });
+
+    // Seleção só existe na visão por grupos: trocar de visão limpa tudo.
+    effect(() => {
+      this.modo();
+      untracked(() => this.limparSelecao());
+    });
+
+    // Recarga ou evento em tempo real pode remover itens: tira da seleção os que não existem mais.
+    effect(() => {
+      const existentes = new Set(this.itens().map((i) => i.id));
+      const atual = untracked(this.selecionados);
+      if ([...atual].some((id) => !existentes.has(id))) {
+        this.selecionados.set(new Set([...atual].filter((id) => existentes.has(id))));
+      }
     });
   }
 
@@ -271,56 +326,187 @@ export class GerenciamentoPage {
     }
   }
 
-  // ----- Reordenação (Angular CDK) -----
+  // ----- Reordenação (arrastar, posição digitada e mover em lote) -----
 
-  protected async soltarItem(evento: CdkDragDrop<Grupo, Grupo, Item>) {
-    const origem = evento.previousContainer.data;
-    const destino = evento.container.data;
-    const mesmaLista = origem.id === destino.id;
+  protected soltarItem(evento: CdkDragDrop<Grupo, Grupo, Item>) {
+    const mesmaLista = evento.previousContainer.data.id === evento.container.data.id;
     if (mesmaLista && evento.previousIndex === evento.currentIndex) return;
+    void this.moverItens([evento.item.data.id], evento.container.data.categoriaId, evento.currentIndex);
+  }
 
-    const listaDestino = [...destino.itens];
-    const listaOrigem = mesmaLista ? listaDestino : [...origem.itens];
-    if (mesmaLista) moveItemInArray(listaDestino, evento.previousIndex, evento.currentIndex);
-    else transferArrayItem(listaOrigem, listaDestino, evento.previousIndex, evento.currentIndex);
+  /** Posição digitada na linha (1-based, já limitada pela linha ao tamanho do grupo). */
+  protected moverParaPosicao(item: Item, grupo: Grupo, posicao: number) {
+    void this.moverItens([item.id], grupo.categoriaId, posicao - 1);
+  }
 
-    const posicoes: PosicaoItem[] = listaDestino.map((item, ordem) => ({ id: item.id, categoriaId: destino.categoriaId, ordem }));
-    if (!mesmaLista) {
-      posicoes.push(...listaOrigem.map((item, ordem) => ({ id: item.id, categoriaId: origem.categoriaId, ordem })));
+  /**
+   * Move `ids` para o grupo `categoriaIdDestino` (null = sem grupo), começando no índice `indiceDestino`
+   * da lista de destino já sem os itens movidos (índices fora da faixa são limitados; `Infinity` = no fim).
+   * Os itens movidos mantêm a ordem relativa em que aparecem na tela. Renumera 0..n-1 todos os grupos
+   * afetados, aplica de forma otimista e persiste numa única chamada; desfaz se a API recusar.
+   * Retorna `true` se a nova ordem foi salva (ou se não havia nada a mudar).
+   */
+  protected async moverItens(ids: string[], categoriaIdDestino: string | null, indiceDestino: number): Promise<boolean> {
+    const listas = this.listasPorEtapa();
+    const chaveDestino = categoriaIdDestino !== null && listas.has(categoriaIdDestino) ? categoriaIdDestino : null;
+    const alvo = new Set(ids);
+
+    const movidos: Item[] = [];
+    const novas = new Map<string | null, Item[]>();
+    for (const [chave, lista] of listas) {
+      const restantes = lista.filter((item) => {
+        if (!alvo.has(item.id)) return true;
+        movidos.push(item);
+        return false;
+      });
+      if (restantes.length !== lista.length) novas.set(chave, restantes);
+    }
+    if (!movidos.length) return true;
+
+    const destino = [...(novas.get(chaveDestino) ?? listas.get(chaveDestino) ?? [])];
+    const indice = Math.min(Math.max(Math.trunc(Number.isFinite(indiceDestino) ? indiceDestino : destino.length), 0), destino.length);
+    destino.splice(indice, 0, ...movidos);
+    novas.set(chaveDestino, destino);
+
+    const inalterado = [...novas].every(([chave, lista]) => {
+      const original = listas.get(chave) ?? [];
+      return original.length === lista.length && original.every((item, i) => item.id === lista[i].id);
+    });
+    if (inalterado) return true;
+
+    const posicoes: PosicaoItem[] = [];
+    for (const [chave, lista] of novas) {
+      lista.forEach((item, ordem) => posicoes.push({ id: item.id, categoriaId: chave, ordem }));
     }
 
     const anterior = this.itens();
     this.aplicarPosicoes(posicoes);
     try {
       await this.api.reordenarItens(this.id(), posicoes);
+      return true;
     } catch (erro) {
       this.itens.set(anterior);
       this.toast.erro(`Não foi possível salvar a nova ordem: ${mensagemDeErro(erro)}`);
+      return false;
     }
   }
 
-  protected async soltarEtapa(evento: CdkDragDrop<Categoria[]>) {
-    if (evento.previousIndex === evento.currentIndex) return;
+  protected async reordenarEtapas({ de, para }: MovimentoEtapa) {
     const anterior = this.categorias();
+    if (de === para || para < 0 || para >= anterior.length) return;
     const lista = [...anterior];
-    moveItemInArray(lista, evento.previousIndex, evento.currentIndex);
+    moveItemInArray(lista, de, para);
     this.categorias.set(lista.map((c, ordem) => ({ ...c, ordem })));
     try {
       await this.api.reordenarCategorias(this.id(), lista.map((c) => c.id));
     } catch (erro) {
       this.categorias.set(anterior);
-      this.toast.erro(`Não foi possível reordenar as etapas: ${mensagemDeErro(erro)}`);
+      this.toast.erro(`Não foi possível reordenar os grupos: ${mensagemDeErro(erro)}`);
     }
+  }
+
+  // ----- Seleção e ações em lote -----
+
+  protected alternarItem(id: string, marcado: boolean) {
+    this.selecionados.update((atual) => {
+      const novo = new Set(atual);
+      if (marcado) novo.add(id);
+      else novo.delete(id);
+      return novo;
+    });
+  }
+
+  protected alternarGrupo(grupo: Grupo) {
+    const marcar = this.selecaoPorGrupo().get(grupo.id) !== 'todos';
+    this.selecionados.update((atual) => {
+      const novo = new Set(atual);
+      for (const item of grupo.itens) {
+        if (marcar) novo.add(item.id);
+        else novo.delete(item.id);
+      }
+      return novo;
+    });
+  }
+
+  protected limparSelecao() {
+    this.selecionados.set(new Set());
+    this.nomeNovoGrupo.set(null);
+  }
+
+  /** `valor` vem do select da barra: id do grupo ou '' para "Sem grupo". */
+  protected async moverSelecaoPara(valor: string) {
+    if (valor === '__nenhum') return;
+    await this.moverSelecao(valor || null);
+  }
+
+  protected async criarGrupoComSelecao() {
+    const nome = this.nomeNovoGrupo()?.trim();
+    if (!nome || this.movendoSelecao()) return;
+    this.movendoSelecao.set(true);
+    try {
+      const categoria = await this.criarEtapa(nome);
+      if (!categoria) return;
+      this.nomeNovoGrupo.set(null);
+      await this.moverSelecao(categoria.id, false);
+    } finally {
+      this.movendoSelecao.set(false);
+    }
+  }
+
+  /** Leva os selecionados para o fim do grupo, mantendo a ordem em que aparecem na tela. */
+  private async moverSelecao(categoriaId: string | null, controlarEstado = true) {
+    const selecionados = this.selecionados();
+    if (!selecionados.size) return;
+    const ids = [...this.listasPorEtapa().values()].flat().filter((i) => selecionados.has(i.id)).map((i) => i.id);
+    if (controlarEstado) this.movendoSelecao.set(true);
+    try {
+      const ok = await this.moverItens(ids, categoriaId, Infinity);
+      if (!ok) return;
+      const nome = categoriaId ? this.categorias().find((c) => c.id === categoriaId)?.nome : 'Sem grupo';
+      this.toast.sucesso(`${plural(ids.length, 'item movido', 'itens movidos')} para "${nome ?? 'grupo'}".`);
+      this.limparSelecao();
+      if (categoriaId) this.expandir(categoriaId);
+      else this.expandir(SEM_ETAPA);
+    } finally {
+      if (controlarEstado) this.movendoSelecao.set(false);
+    }
+  }
+
+  // ----- Recolher / expandir grupos -----
+
+  protected alternarRecolhido(id: string) {
+    this.recolhidos.update((atual) => {
+      const novo = new Set(atual);
+      if (novo.has(id)) novo.delete(id);
+      else novo.add(id);
+      return novo;
+    });
+  }
+
+  protected alternarTodos() {
+    this.recolhidos.set(this.todosRecolhidos() ? new Set() : new Set(this.grupos().map((g) => g.id)));
+  }
+
+  private expandir(id: string) {
+    if (!this.recolhidos().has(id)) return;
+    this.recolhidos.update((atual) => {
+      const novo = new Set(atual);
+      novo.delete(id);
+      return novo;
+    });
   }
 
   // ----- Etapas (categorias) -----
 
-  protected async criarEtapa(nome: string) {
+  protected async criarEtapa(nome: string): Promise<Categoria | null> {
     try {
       const categoria = await this.api.criarCategoria(this.id(), nome);
-      this.categorias.update((lista) => [...lista, categoria]);
+      // O evento em tempo real pode ter recarregado a lista antes da resposta chegar.
+      this.categorias.update((lista) => (lista.some((c) => c.id === categoria.id) ? lista : [...lista, categoria]));
+      return categoria;
     } catch (erro) {
       this.toast.erro(mensagemDeErro(erro));
+      return null;
     }
   }
 
@@ -335,8 +521,8 @@ export class GerenciamentoPage {
 
   protected async removerEtapa(categoria: Categoria) {
     const quantidade = this.itens().filter((i) => i.categoriaId === categoria.id).length;
-    const aviso = quantidade ? ` Os ${quantidade} itens dela ficarão em "Sem etapa definida".` : '';
-    if (!confirm(`Excluir a etapa "${categoria.nome}"?${aviso}`)) return;
+    const aviso = quantidade ? ` ${plural(quantidade, 'item dele ficará', 'itens dele ficarão')} em "Sem grupo".` : '';
+    if (!confirm(`Excluir o grupo "${categoria.nome}"?${aviso}`)) return;
     try {
       await this.api.removerCategoria(categoria.id);
       this.categorias.update((lista) => lista.filter((c) => c.id !== categoria.id));
@@ -350,6 +536,7 @@ export class GerenciamentoPage {
     this.modo.set('etapas');
     this.filtro.set('TODOS');
     this.busca.set('');
+    this.expandir(categoria.id);
     setTimeout(() => document.getElementById(`etapa-${categoria.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
 

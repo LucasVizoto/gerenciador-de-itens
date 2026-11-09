@@ -10,7 +10,7 @@
   </div>
 } @else if (erroCarga()) {
   <div class="mx-auto max-w-xl px-4 py-20 text-center">
-    <span class="mx-auto grid size-12 place-items-center rounded-xl bg-rose-500/10 text-rose-300"><app-icone nome="alerta" [tamanho]="22" /></span>
+    <span class="mx-auto grid size-12 place-items-center rounded-xl bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"><app-icone nome="alerta" [tamanho]="22" /></span>
     <h1 class="mt-4 text-lg font-semibold">Não foi possível abrir o sistema</h1>
     <p class="mt-1 text-sm text-muted">{{ erroCarga() }}</p>
     <div class="mt-6 flex justify-center gap-2">
@@ -55,9 +55,9 @@
           >
             <span class="relative flex size-2">
               @if (conexao() === 'online') {
-                <span class="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-70"></span>
+                <span class="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-70 dark:bg-emerald-400"></span>
               }
-              <span class="relative inline-flex size-2 rounded-full" [class]="conexao() === 'online' ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+              <span class="relative inline-flex size-2 rounded-full" [class]="conexao() === 'online' ? 'bg-emerald-500 dark:bg-emerald-400' : 'bg-amber-500 dark:bg-amber-400'"></span>
             </span>
             {{ conexao() === 'online' ? 'Ao vivo' : conexao() === 'conectando' ? 'Conectando…' : 'Reconectando…' }}
           </span>
@@ -69,7 +69,7 @@
     </div>
   </header>
 
-  <main class="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
+  <main class="mx-auto max-w-7xl px-4 pb-20 sm:px-6" [class.pb-40]="selecionados().size > 0">
     <!-- Indicadores (fixos ao rolar, como no checklist da POC) -->
     <div class="print-claro sticky top-0 z-20 -mx-4 bg-canvas/90 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6 print:static">
       <app-painel-meta [resumo]="resumo()" [meta]="meta()" />
@@ -81,7 +81,7 @@
     <!-- Barra de ferramentas -->
     <div class="mt-5 flex flex-wrap items-center gap-2.5 print:hidden">
       <select class="input w-auto" aria-label="Ordem" [value]="modo()" (change)="definirModo($any($event.target).value)">
-        <option value="etapas">{{ categorias().length }} etapas do planejamento</option>
+        <option value="etapas">Grupos da apresentação ({{ categorias().length }})</option>
         <option value="numerica">Ordem numérica do edital</option>
       </select>
       <select class="input w-auto" aria-label="Filtro" [value]="filtro()" (change)="definirFiltro($any($event.target).value)">
@@ -110,27 +110,35 @@
     <p class="mt-3 text-xs leading-relaxed text-muted print:hidden">
       {{ notaCalculo() }}
       @if (!podeArrastar() && itens().length) {
-        <span class="text-faint"> Para reordenar, use "etapas do planejamento" sem filtros.</span>
+        <span class="text-faint"> Para reordenar, use "Grupos da apresentação" sem filtros.</span>
       }
-      <a href="modelo-importacao-itens.csv" download class="ml-1 font-medium text-brand-300 hover:text-brand-200">Baixar modelo de CSV</a>
+      <a href="modelo-importacao-itens.csv" download class="ml-1 font-medium text-brand-600 hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200">Baixar modelo de CSV</a>
     </p>
 
     <!-- Resultado da última importação -->
     @if (ultimaImportacao(); as r) {
-      <div class="card mt-4 border-brand-700/70 p-4 print:hidden">
+      <div class="card mt-4 border-brand-200 p-4 print:hidden dark:border-brand-700/70">
         <div class="flex items-start gap-3">
-          <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-brand-900 text-brand-300"><app-icone nome="planilha" /></span>
+          <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-900 dark:text-brand-300"><app-icone nome="planilha" /></span>
           <div class="min-w-0 flex-1">
-            <p class="font-medium">Planilha <span class="text-brand-300">{{ r.arquivo }}</span> importada</p>
+            <p class="font-medium">Planilha <span class="text-brand-600 dark:text-brand-300">{{ r.arquivo }}</span> importada</p>
             <p class="mt-0.5 text-sm text-muted">{{ contagemImportacao() }}</p>
             <div class="mt-2 flex flex-wrap gap-1.5 text-xs">
               @for (coluna of colunasImportadas(); track coluna[0]) {
                 <span class="rounded bg-surface-3 px-2 py-0.5 text-ink-soft">"{{ coluna[1] }}" → {{ camposCsv[coluna[0]] }}</span>
               }
             </div>
+            @if (r.colunasIgnoradas?.length) {
+              <p class="mt-2 text-xs text-muted">
+                <span class="font-medium text-ink-soft">Colunas ignoradas:</span>
+                @for (coluna of r.colunasIgnoradas; track $index) {
+                  <span class="ml-1 rounded bg-surface-3 px-1.5 py-0.5">"{{ coluna }}"</span>
+                }
+              </p>
+            }
             @if (r.avisos.length) {
               <details class="mt-3">
-                <summary class="cursor-pointer text-sm text-amber-300">{{ r.avisos.length === 1 ? '1 aviso' : r.avisos.length + ' avisos' }} na leitura da planilha</summary>
+                <summary class="cursor-pointer text-sm text-amber-800 dark:text-amber-300">{{ r.avisos.length === 1 ? '1 aviso' : r.avisos.length + ' avisos' }} na leitura da planilha</summary>
                 <ul class="mt-2 max-h-48 space-y-1 overflow-y-auto text-xs text-muted">
                   @for (aviso of r.avisos; track $index) {
                     <li><span class="font-semibold text-ink-soft">Linha {{ aviso.linha }}:</span> {{ aviso.mensagem }}</li>
@@ -147,11 +155,11 @@
     }
 
     <div class="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_290px]">
-      <!-- Itens agrupados: cada etapa é uma lista do CDK conectada às demais -->
+      <!-- Itens agrupados: cada grupo (etapa) é uma lista do CDK conectada às demais -->
       <div cdkDropListGroup class="print-claro min-w-0 space-y-5">
         @if (!itens().length) {
           <div class="card flex flex-col items-center px-6 py-14 text-center">
-            <span class="grid size-12 place-items-center rounded-xl bg-brand-900 text-brand-300"><app-icone nome="planilha" [tamanho]="22" /></span>
+            <span class="grid size-12 place-items-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900 dark:text-brand-300"><app-icone nome="planilha" [tamanho]="22" /></span>
             <h2 class="mt-4 text-lg font-semibold">Nenhum item neste sistema</h2>
             <p class="mt-1 max-w-lg text-sm leading-relaxed text-muted">
               Importe a planilha CSV com os itens do edital. Colunas reconhecidas: <strong class="text-ink-soft">Tipo</strong>,
@@ -167,48 +175,110 @@
           </div>
         }
 
+        @if (grupos().length > 1) {
+          <div class="flex justify-end print:hidden">
+            <button type="button" class="btn btn-ghost px-2.5 py-1.5 text-xs" (click)="alternarTodos()">
+              {{ todosRecolhidos() ? 'Expandir todos' : 'Recolher todos' }}
+            </button>
+          </div>
+        }
+
         @for (grupo of grupos(); track grupo.id) {
+          @let recolhido = recolhidos().has(grupo.id);
+          @let selecao = selecaoPorGrupo().get(grupo.id) ?? 'nenhum';
           <section class="card scroll-mt-48 overflow-hidden" [id]="'etapa-' + grupo.id">
-            <header class="flex items-center gap-3 bg-surface-2 px-5 py-4">
+            <header class="flex items-center gap-3 bg-surface-2 px-4 py-3.5 sm:px-5">
+              <button
+                type="button"
+                class="-ml-1 grid size-7 shrink-0 place-items-center rounded-md text-muted transition-colors hover:bg-surface-3 hover:text-ink print:hidden"
+                [attr.aria-expanded]="!recolhido"
+                [attr.aria-controls]="'itens-' + grupo.id"
+                [attr.aria-label]="(recolhido ? 'Expandir ' : 'Recolher ') + grupo.titulo"
+                (click)="alternarRecolhido(grupo.id)"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                  class="transition-transform"
+                  [class.-rotate-90]="recolhido"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+              @if (podeSelecionar() && grupo.itens.length) {
+                <input
+                  type="checkbox"
+                  class="size-4 shrink-0 cursor-pointer accent-brand-600 print:hidden"
+                  [checked]="selecao === 'todos'"
+                  [indeterminate]="selecao === 'alguns'"
+                  [attr.aria-label]="'Selecionar todos os itens de ' + grupo.titulo"
+                  (change)="alternarGrupo(grupo)"
+                />
+              }
               @if (grupo.numero) {
-                <span class="grid size-7 shrink-0 place-items-center rounded-lg bg-brand-900 text-xs font-bold text-brand-300 tabular-nums">
+                <span
+                  class="grid size-7 shrink-0 place-items-center rounded-lg bg-brand-50 text-xs font-bold text-brand-600 tabular-nums dark:bg-brand-900 dark:text-brand-300"
+                >
                   {{ grupo.numero }}
                 </span>
               }
-              <h2 class="text-[15px] font-semibold">{{ grupo.titulo }}</h2>
+              <h2 class="min-w-0 text-[15px] font-semibold">
+                <button type="button" class="text-left hover:text-brand-600 dark:hover:text-brand-300" (click)="alternarRecolhido(grupo.id)">
+                  {{ grupo.titulo }}
+                </button>
+              </h2>
+              <span class="shrink-0 rounded-full bg-surface-3 px-2 py-0.5 text-[11px] font-medium text-muted tabular-nums">
+                {{ filtrando() ? grupo.itens.length + ' de ' + grupo.total : grupo.total }} {{ grupo.total === 1 ? 'item' : 'itens' }}
+              </span>
               <span
                 class="ml-auto shrink-0 text-xs tabular-nums"
-                [class]="grupo.total && grupo.atendidos === grupo.total ? 'text-emerald-300' : 'text-muted'"
+                [class]="grupo.total && grupo.atendidos === grupo.total ? 'text-emerald-700 dark:text-emerald-300' : 'text-muted'"
               >
                 {{ grupo.atendidos }}/{{ grupo.total }} atendidos
               </span>
             </header>
 
-            <div
-              cdkDropList
-              class="min-h-14"
-              [cdkDropListData]="grupo"
-              [cdkDropListDisabled]="!podeArrastar()"
-              (cdkDropListDropped)="soltarItem($event)"
-            >
-              @for (item of grupo.itens; track item.id) {
-                <app-item-linha
-                  cdkDrag
-                  [cdkDragData]="item"
-                  [cdkDragDisabled]="!podeArrastar()"
-                  [item]="item"
-                  [arrastavel]="podeArrastar()"
-                  [salvando]="salvando().has(item.id)"
-                  [destaque]="destaques().has(item.id)"
-                  (status)="marcar(item, $event)"
-                  (editar)="itemEmEdicao.set(item)"
-                />
-              } @empty {
-                <p class="border-t border-line px-5 py-6 text-center text-sm text-faint">
-                  {{ podeArrastar() ? 'Arraste itens para esta etapa.' : 'Nenhum item nesta etapa.' }}
-                </p>
-              }
-            </div>
+            @if (!recolhido) {
+              <div
+                cdkDropList
+                class="min-h-14"
+                [id]="'itens-' + grupo.id"
+                [cdkDropListData]="grupo"
+                [cdkDropListDisabled]="!podeArrastar()"
+                (cdkDropListDropped)="soltarItem($event)"
+              >
+                @for (item of grupo.itens; track item.id) {
+                  <app-item-linha
+                    cdkDrag
+                    [cdkDragData]="item"
+                    [cdkDragDisabled]="!podeArrastar()"
+                    [item]="item"
+                    [arrastavel]="podeArrastar()"
+                    [posicao]="podeArrastar() ? $index + 1 : null"
+                    [totalGrupo]="grupo.itens.length"
+                    [selecionavel]="podeSelecionar()"
+                    [selecionado]="selecionados().has(item.id)"
+                    [salvando]="salvando().has(item.id)"
+                    [destaque]="destaques().has(item.id)"
+                    (status)="marcar(item, $event)"
+                    (editar)="itemEmEdicao.set(item)"
+                    (mover)="moverParaPosicao(item, grupo, $event)"
+                    (selecionar)="alternarItem(item.id, $event)"
+                  />
+                } @empty {
+                  <p class="border-t border-line px-5 py-6 text-center text-sm text-faint">
+                    {{ podeArrastar() ? 'Arraste itens ou use a seleção para mover itens para este grupo.' : 'Nenhum item neste grupo.' }}
+                  </p>
+                }
+              </div>
+            }
           </section>
         } @empty {
           @if (itens().length) {
@@ -221,7 +291,7 @@
         class="print:hidden lg:sticky lg:top-48"
         [categorias]="categorias()"
         [progresso]="progressoEtapas()"
-        (reordenar)="soltarEtapa($event)"
+        (reordenar)="reordenarEtapas($event)"
         (criar)="criarEtapa($event)"
         (renomear)="renomearEtapa($event)"
         (remover)="removerEtapa($event)"
@@ -229,6 +299,62 @@
       />
     </div>
   </main>
+
+  <!-- Barra de ações da seleção (fixa no rodapé) -->
+  @if (selecionados().size) {
+    <div class="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-4 pb-4 print:hidden sm:px-6">
+      <div
+        role="region"
+        aria-label="Ações para os itens selecionados"
+        class="pointer-events-auto mx-auto flex max-w-4xl flex-wrap items-center gap-2 rounded-2xl border border-line-strong bg-surface px-4 py-3 shadow-2xl shadow-black/20 dark:shadow-black/60"
+        (keydown.escape)="nomeNovoGrupo() === null ? limparSelecao() : nomeNovoGrupo.set(null)"
+      >
+        <p class="mr-1 text-sm font-semibold tabular-nums" aria-live="polite">
+          {{ selecionados().size === 1 ? '1 selecionado' : selecionados().size + ' selecionados' }}
+        </p>
+
+        @if (nomeNovoGrupo() === null) {
+          <form class="flex items-center gap-2" (submit)="$event.preventDefault(); moverSelecaoPara(destinoLote.value)">
+            <select #destinoLote class="input w-auto max-w-56 py-2" aria-label="Grupo de destino" [disabled]="movendoSelecao()">
+              <option value="__nenhum" disabled selected>Mover para grupo…</option>
+              @for (categoria of categorias(); track categoria.id; let i = $index) {
+                <option [value]="categoria.id">{{ i + 1 }} · {{ categoria.nome }}</option>
+              }
+              <option value="">Sem grupo</option>
+            </select>
+            <button type="submit" class="btn py-2" [disabled]="movendoSelecao()">Mover</button>
+          </form>
+          <button type="button" class="btn py-2" [disabled]="movendoSelecao()" (click)="nomeNovoGrupo.set('')">
+            <app-icone nome="mais" [tamanho]="14" /> Criar grupo com selecionados
+          </button>
+        } @else {
+          <form class="flex flex-1 items-center gap-2" (submit)="$event.preventDefault(); criarGrupoComSelecao()">
+            <input
+              appAutoFoco
+              class="input min-w-40 flex-1 py-2"
+              placeholder="Nome do novo grupo…"
+              aria-label="Nome do novo grupo"
+              maxlength="200"
+              [value]="nomeNovoGrupo()"
+              [disabled]="movendoSelecao()"
+              (input)="nomeNovoGrupo.set($any($event.target).value)"
+            />
+            <button type="submit" class="btn btn-primary py-2" [disabled]="movendoSelecao() || !nomeNovoGrupo()?.trim()">
+              @if (movendoSelecao()) {
+                <span class="spinner"></span>
+              }
+              Criar e mover
+            </button>
+            <button type="button" class="btn btn-ghost py-2" [disabled]="movendoSelecao()" (click)="nomeNovoGrupo.set(null)">Cancelar</button>
+          </form>
+        }
+
+        <button type="button" class="btn btn-ghost ml-auto py-2" (click)="limparSelecao()">
+          <app-icone nome="fechar" [tamanho]="14" /> Limpar seleção
+        </button>
+      </div>
+    </div>
+  }
 
   <app-modal titulo="Editar sistema" [aberto]="editandoSistema()" (fechado)="editandoSistema.set(false)">
     @if (editandoSistema()) {

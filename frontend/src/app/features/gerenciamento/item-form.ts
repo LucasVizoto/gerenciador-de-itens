@@ -23,9 +23,9 @@ import { Icone } from '../../shared/icone';
         <input id="numero" class="input" formControlName="numero" placeholder="Ex.: 12 ou 3.1.2" />
       </div>
       <div>
-        <label class="label" for="etapa">Etapa</label>
+        <label class="label" for="etapa">Grupo</label>
         <select id="etapa" class="input" formControlName="categoriaId">
-          <option value="">Sem etapa</option>
+          <option value="">Sem grupo</option>
           @for (categoria of categorias(); track categoria.id; let i = $index) {
             <option [value]="categoria.id">{{ i + 1 }} · {{ categoria.nome }}</option>
           }
@@ -36,7 +36,7 @@ import { Icone } from '../../shared/icone';
         <label class="label" for="descricao">Requisito *</label>
         <textarea id="descricao" rows="5" class="input leading-relaxed" formControlName="descricao"></textarea>
         @if (form.controls.descricao.touched && form.controls.descricao.invalid) {
-          <p class="mt-1 text-xs text-rose-300">Informe o texto do requisito.</p>
+          <p class="mt-1 text-xs text-rose-700 dark:text-rose-300">Informe o texto do requisito.</p>
         }
       </div>
       <div class="sm:col-span-3">
@@ -46,7 +46,7 @@ import { Icone } from '../../shared/icone';
           rows="2"
           class="input"
           formControlName="observacao"
-          placeholder="Ex.: atende via relatório X; demonstrar na etapa 5"
+          placeholder="Ex.: atende via relatório X; demonstrar no grupo 5"
         ></textarea>
       </div>
 

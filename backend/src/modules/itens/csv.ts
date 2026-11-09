@@ -22,7 +22,11 @@ export interface LeituraCsv {
   delimitador: string;
   /** Campo do sistema → cabeçalho encontrado na planilha. */
   colunas: Partial<Record<CampoCsv, string>>;
+  /** Cabeçalhos descartados de propósito (ex.: "Área", "Sistema", "Status (DEV)"). */
+  colunasIgnoradas: string[];
   linhas: LinhaCsv[];
+  /** Linhas de título/subtítulo da planilha, descartadas sem aviso. */
+  titulosIgnorados: number;
   avisos: AvisoCsv[];
 }
 
@@ -36,13 +40,24 @@ const APELIDOS: Record<CampoCsv, string[]> = {
   numero: ['item', 'numero', 'n', 'no', 'num', 'nr', 'numero do item', 'item n', 'n item', 'cod', 'codigo', 'ref', 'referencia', 'id'],
   descricao: ['requisito', 'requisitos', 'descricao', 'descricao do requisito', 'descricao do item', 'especificacao', 'funcionalidade', 'texto'],
   tipo: ['tipo', 'classificacao', 'natureza', 'criticidade'],
-  categoria: ['etapa', 'categoria', 'processo', 'modulo', 'grupo', 'secao', 'bloco', 'area'],
+  categoria: ['etapa', 'categoria', 'processo', 'modulo', 'grupo', 'secao', 'bloco'],
   status: ['status', 'situacao', 'avaliacao', 'atende', 'conformidade', 'resultado'],
   observacao: ['observacao', 'observacoes', 'obs', 'comentario', 'comentarios', 'justificativa', 'nota', 'notas'],
 };
 
 /** Descrição vem antes de número para "Descrição do item" não ser lido como numeração. */
 const PRIORIDADE: CampoCsv[] = ['descricao', 'categoria', 'observacao', 'status', 'tipo', 'numero'];
+/**
+ * Colunas que nunca viram etapa nem status: "Área" e "Sistema" só repetem o contexto da planilha,
+ * e colunas marcadas como DEV (ex.: "Status (DEV)") trazem avaliações prévias que não valem para a POC.
+ */
+function colunaIgnorada(cabecalhoNormalizado: string): boolean {
+  return ['area', 'sistema'].includes(cabecalhoNormalizado) || ` ${cabecalhoNormalizado} `.includes(' dev ');
+}
+
+/** Valor da coluna Tipo que marca a linha como título de seção, e não como requisito. */
+const TIPO_TITULO = /^(titulo|subtitulo|sub titulo|cabecalho|secao)/;
+
 const DELIMITADORES = [';', ',', '\t', '|'];
 const LINHAS_BUSCA_CABECALHO = 10;
 
@@ -67,7 +82,7 @@ function decodificar(conteudo: Buffer): string {
 function mapearColunas(cabecalho: string[]): Map<CampoCsv, number> {
   const normalizados = cabecalho.map(normalizar);
   const mapa = new Map<CampoCsv, number>();
-  const usados = new Set<number>();
+  const usados = new Set(normalizados.flatMap((nome, i) => (colunaIgnorada(nome) ? [i] : [])));
 
   const procurar = (campo: CampoCsv, combina: (cabecalho: string, apelido: string) => boolean) => {
     if (mapa.has(campo)) return;
@@ -137,6 +152,7 @@ export function lerTipo(valor: string): TipoItem | null {
   const v = normalizar(valor);
   if (/^(obr|mand|elim)/.test(v)) return 'OBRIGATORIO';
   if (/^(ess|func|req)/.test(v)) return 'ESSENCIAL';
+  if (/^(disp|nao se aplica)/.test(v)) return 'DISPENSADO';
   if (/^(comp|rel|opc|des|extra)/.test(v)) return 'COMPLEMENTAR';
   return null;
 }
@@ -174,6 +190,7 @@ export function lerCsvItens(conteudo: Buffer): LeituraCsv {
 
   const linhas: LinhaCsv[] = [];
   const avisos: AvisoCsv[] = [];
+  let titulosIgnorados = 0;
 
   for (let indice = indiceCabecalho + 1; indice < registros.length; indice++) {
     const registro = registros[indice] ?? [];
@@ -183,13 +200,18 @@ export function lerCsvItens(conteudo: Buffer): LeituraCsv {
       return coluna === undefined ? '' : (registro[coluna] ?? '').trim();
     };
 
+    const tipoBruto = valor('tipo');
+    if (TIPO_TITULO.test(normalizar(tipoBruto))) {
+      titulosIgnorados++;
+      continue;
+    }
+
     const descricao = valor('descricao');
     if (!descricao) {
       avisos.push({ linha, mensagem: 'Linha ignorada: requisito sem descrição.' });
       continue;
     }
 
-    const tipoBruto = valor('tipo');
     const tipo = tipoBruto ? lerTipo(tipoBruto) : null;
     if (tipoBruto && !tipo) {
       avisos.push({ linha, mensagem: `Tipo "${tipoBruto}" não reconhecido; o item foi tratado como Essencial.` });
@@ -217,14 +239,16 @@ export function lerCsvItens(conteudo: Buffer): LeituraCsv {
 
   const colunas: LeituraCsv['colunas'] = {};
   for (const [campo, coluna] of mapa) colunas[campo] = cabecalho[coluna] ?? '';
+  const colunasIgnoradas = cabecalho.filter((nome) => nome.trim() && colunaIgnorada(normalizar(nome)));
 
-  return { delimitador, colunas, linhas, avisos };
+  return { delimitador, colunas, colunasIgnoradas, linhas, titulosIgnorados, avisos };
 }
 
 const ROTULO_TIPO: Record<TipoItem, string> = {
   OBRIGATORIO: 'Obrigatório',
   ESSENCIAL: 'Essencial',
   COMPLEMENTAR: 'Complementar',
+  DISPENSADO: 'Dispensado da POC',
 };
 
 const ROTULO_STATUS: Record<StatusItem, string> = {

@@ -1,5 +1,6 @@
 export type StatusItem = 'PENDENTE' | 'ATENDE' | 'NAO_ATENDE';
-export type TipoItem = 'OBRIGATORIO' | 'ESSENCIAL' | 'COMPLEMENTAR';
+/** DISPENSADO = dispensado da POC: aparece no checklist, mas fica fora de todos os cálculos. */
+export type TipoItem = 'OBRIGATORIO' | 'ESSENCIAL' | 'COMPLEMENTAR' | 'DISPENSADO';
 
 /** Sistema apresentado. Os itens do edital e a avaliação pertencem a ele. */
 export interface Sistema {
@@ -94,6 +95,10 @@ export interface ResultadoImportacao {
   categoriasCriadas: string[];
   colunas: Record<string, string>;
   avisos: Array<{ linha: number; mensagem: string }>;
+  /** Linhas de título/subtítulo da planilha que não viraram itens. */
+  titulosIgnorados?: number;
+  /** Cabeçalhos da planilha que não correspondem a nenhum campo. */
+  colunasIgnoradas?: string[];
 }
 
 export interface EventoEdital {

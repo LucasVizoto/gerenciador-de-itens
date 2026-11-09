@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { TemaService } from './core/tema.service';
 import { Icone } from './shared/icone';
 import { Toasts } from './shared/toasts';
 
@@ -9,4 +10,6 @@ import { Toasts } from './shared/toasts';
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
 })
-export class App {}
+export class App {
+  protected readonly tema = inject(TemaService);
+}

@@ -9,7 +9,7 @@ import { Icone } from './icone';
   template: `
     <dialog
       #dialogo
-      class="m-auto max-h-[calc(100dvh-2rem)] w-[min(680px,calc(100vw-2rem))] max-w-none rounded-2xl border border-line-strong bg-surface p-0 text-ink shadow-2xl shadow-black/60 backdrop:bg-black/70 backdrop:backdrop-blur-sm"
+      class="m-auto max-h-[calc(100dvh-2rem)] w-[min(680px,calc(100vw-2rem))] max-w-none rounded-2xl border border-line-strong bg-surface p-0 text-ink shadow-2xl shadow-brand-950/20 backdrop:bg-brand-950/40 backdrop:backdrop-blur-sm dark:shadow-black/60 dark:backdrop:bg-black/70"
       [attr.aria-label]="titulo()"
       (close)="fechado.emit()"
       (click)="cliqueNoFundo($event)"

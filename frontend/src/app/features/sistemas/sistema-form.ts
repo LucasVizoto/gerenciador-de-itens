@@ -13,7 +13,7 @@ import type { DadosSistema, Sistema } from '../../core/models';
         <label class="label" for="nome">Nome do sistema *</label>
         <input id="nome" class="input" formControlName="nome" placeholder="Ex.: Gestão de Frotas" autofocus />
         @if (form.controls.nome.touched && form.controls.nome.invalid) {
-          <p class="mt-1 text-xs text-rose-300">Informe o nome do sistema.</p>
+          <p class="mt-1 text-xs text-rose-600 dark:text-rose-300">Informe o nome do sistema.</p>
         }
       </div>
       <div>
@@ -38,7 +38,7 @@ import type { DadosSistema, Sistema } from '../../core/models';
         <label class="label" for="meta">Meta de itens essenciais (%)</label>
         <input id="meta" type="number" min="1" max="100" class="input" formControlName="metaPercentual" />
         @if (form.controls.metaPercentual.invalid) {
-          <p class="mt-1 text-xs text-rose-300">Use um valor entre 1 e 100.</p>
+          <p class="mt-1 text-xs text-rose-600 dark:text-rose-300">Use um valor entre 1 e 100.</p>
         }
       </div>
 

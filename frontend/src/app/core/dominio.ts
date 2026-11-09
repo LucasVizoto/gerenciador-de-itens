@@ -10,9 +10,10 @@ export const TIPOS: Record<TipoItem, { rotulo: string; prefixo: string }> = {
   OBRIGATORIO: { rotulo: 'Obrigatório', prefixo: 'OBR.' },
   ESSENCIAL: { rotulo: 'Essencial', prefixo: 'ITEM' },
   COMPLEMENTAR: { rotulo: 'Complementar', prefixo: 'ITEM' },
+  DISPENSADO: { rotulo: 'Dispensado da POC', prefixo: 'DISP.' },
 };
 
-export const ORDEM_TIPOS: TipoItem[] = ['OBRIGATORIO', 'ESSENCIAL', 'COMPLEMENTAR'];
+export const ORDEM_TIPOS: TipoItem[] = ['OBRIGATORIO', 'ESSENCIAL', 'COMPLEMENTAR', 'DISPENSADO'];
 
 /** Ordenação natural da numeração do edital ("2" < "10", "3.1.2" < "3.1.10"). */
 export function compararNumero(a: string | null, b: string | null): number {
@@ -26,7 +27,10 @@ export function normalizarBusca(texto: string): string {
   return texto.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
 }
 
-/** Mesma regra da API: essenciais atendidos ÷ total de essenciais; pendentes não contam. */
+/**
+ * Mesma regra da API: essenciais atendidos ÷ total de essenciais; pendentes não contam.
+ * Complementares e dispensados da POC não entram em nenhuma contagem da meta.
+ */
 export function calcularResumo(itens: Item[], metaPercentual: number): Resumo {
   const contar = (tipo: TipoItem, status?: StatusItem) =>
     itens.filter((i) => i.tipo === tipo && (!status || i.status === status)).length;

@@ -7,8 +7,9 @@ type Situacao = 'vazio' | 'atingida' | 'inalcancavel' | 'andamento';
 const ESTILO_BANNER: Record<Situacao, string> = {
   vazio: 'border-line bg-surface-2 text-muted',
   andamento: 'border-line bg-surface-2 text-ink-soft',
-  atingida: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200',
-  inalcancavel: 'border-rose-500/40 bg-rose-500/10 text-rose-200',
+  atingida:
+    'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200',
+  inalcancavel: 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-200',
 };
 
 /** Indicadores da meta: essenciais (meta configurável), obrigatórios (100%) e pendências. */
@@ -23,7 +24,7 @@ const ESTILO_BANNER: Record<Situacao, string> = {
         <p class="mt-1 text-3xl font-extrabold tracking-tight tabular-nums">{{ percentual() }}</p>
         <div class="relative my-2.5 h-2 overflow-hidden rounded-full bg-surface-3">
           <div class="h-full rounded-full bg-brand-500 transition-[width] duration-300" [style.width.%]="resumo().essenciais.percentual"></div>
-          <div class="absolute inset-y-0 w-0.5 bg-white/70" [style.left.%]="meta()" title="Meta"></div>
+          <div class="absolute inset-y-0 w-0.5 bg-ink/60" [style.left.%]="meta()" title="Meta"></div>
         </div>
         <p class="text-xs text-muted tabular-nums">
           {{ resumo().essenciais.atendidos }} de {{ resumo().essenciais.total }} atendidos · mínimo {{ resumo().essenciais.minimo }}

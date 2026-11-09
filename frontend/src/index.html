@@ -5,7 +5,23 @@
   <title>Conformidade de Sistemas</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#071b19">
+  <meta name="theme-color" content="#ffffff">
+  <script>
+    // Aplica o tema antes do Angular iniciar para evitar o "flash" claro/escuro (mesma lógica do TemaService).
+    (function () {
+      var tema = null;
+      try {
+        tema = localStorage.getItem('gerenciador-tema');
+      } catch (e) {}
+      if (tema !== 'claro' && tema !== 'escuro') {
+        tema = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'escuro' : 'claro';
+      }
+      var escuro = tema === 'escuro';
+      document.documentElement.setAttribute('data-theme', escuro ? 'dark' : 'light');
+      var meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', escuro ? '#0d1730' : '#ffffff');
+    })();
+  </script>
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

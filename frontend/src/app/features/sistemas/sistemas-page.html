@@ -23,22 +23,22 @@
   } @else {
     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       @for (sistema of sistemas(); track sistema.id) {
-        <article class="card group relative flex flex-col p-5 transition-colors hover:border-brand-600 hover:bg-surface-2">
+        <article class="card group relative flex flex-col p-5 transition-colors hover:border-brand-400 hover:shadow-md hover:shadow-brand-950/10 dark:hover:border-brand-600 dark:hover:bg-surface-2 dark:hover:shadow-none">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <p class="truncate text-xs font-semibold tracking-wide text-muted uppercase">{{ sistema.numero || 'Edital' }}</p>
-              <h2 class="mt-1 truncate text-lg font-semibold text-ink group-hover:text-white">
+              <h2 class="mt-1 truncate text-lg font-semibold text-ink group-hover:text-brand-700 dark:group-hover:text-white">
                 <a [routerLink]="['/sistemas', sistema.id]" class="after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none">
                   {{ sistema.nome }}{{ sistema.versao ? ' · v' + sistema.versao : '' }}
                 </a>
               </h2>
             </div>
             @if (sistema.resumo.metaAtingida) {
-              <span class="shrink-0 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">Meta atingida</span>
+              <span class="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300">Meta atingida</span>
             } @else if (sistema.resumo.totalItens === 0) {
-              <span class="shrink-0 rounded-full bg-surface-3 px-2.5 py-1 text-[11px] font-semibold text-muted">Sem itens</span>
+              <span class="shrink-0 rounded-full border border-line bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-muted dark:bg-surface-3">Sem itens</span>
             } @else {
-              <span class="shrink-0 rounded-full bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-300">Em avaliação</span>
+              <span class="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">Em avaliação</span>
             }
           </div>
 
@@ -64,7 +64,7 @@
             </div>
             <div class="relative mt-2 h-2 overflow-hidden rounded-full bg-surface-3">
               <div class="h-full rounded-full bg-brand-500 transition-all" [style.width.%]="sistema.resumo.essenciais.percentual"></div>
-              <div class="absolute inset-y-0 w-0.5 bg-white/60" [style.left.%]="sistema.metaPercentual"></div>
+              <div class="absolute inset-y-0 w-0.5 bg-ink/60" [style.left.%]="sistema.metaPercentual"></div>
             </div>
             <div class="mt-3 flex items-center justify-between text-xs text-muted">
               <span>
@@ -73,7 +73,7 @@
               </span>
               <button
                 type="button"
-                class="relative z-10 rounded-md p-1.5 text-faint transition group-hover:opacity-100 hover:bg-rose-500/10 hover:text-rose-300 focus:opacity-100 md:opacity-0"
+                class="relative z-10 rounded-md p-1.5 text-faint transition group-hover:opacity-100 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-300 focus:opacity-100 md:opacity-0"
                 [attr.aria-label]="'Excluir sistema ' + sistema.nome"
                 (click)="remover(sistema, $event)"
               >
@@ -84,7 +84,7 @@
         </article>
       } @empty {
         <div class="card col-span-full flex flex-col items-center px-6 py-16 text-center">
-          <span class="grid size-12 place-items-center rounded-xl bg-brand-900 text-brand-300"><app-icone nome="monitor" [tamanho]="22" /></span>
+          <span class="grid size-12 place-items-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900 dark:text-brand-300"><app-icone nome="monitor" [tamanho]="22" /></span>
           <h2 class="mt-4 text-lg font-semibold">Nenhum sistema cadastrado</h2>
           <p class="mt-1 max-w-md text-sm text-muted">
             Cadastre o sistema que será apresentado e, na tela seguinte, importe o CSV com os itens do edital.

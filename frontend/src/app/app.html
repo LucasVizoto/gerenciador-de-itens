@@ -1,23 +1,34 @@
 <div class="flex min-h-dvh flex-col">
-  <nav class="border-b border-line bg-brand-950/70 print:hidden">
+  <nav class="border-b border-line bg-surface/90 backdrop-blur print:hidden">
+    <div class="h-0.5 bg-linear-to-r from-brand-700 via-brand-500 to-brand-300"></div>
     <div class="mx-auto flex h-14 max-w-7xl items-center gap-8 px-4 sm:px-6">
-      <a routerLink="/" class="flex items-center gap-2.5 font-semibold tracking-tight">
-        <span class="grid size-8 place-items-center rounded-lg bg-brand-600 text-white shadow-lg shadow-brand-600/30">
+      <a routerLink="/" class="flex items-center gap-2.5 font-semibold tracking-tight text-ink">
+        <span class="grid size-8 place-items-center rounded-lg bg-linear-to-br from-brand-500 to-brand-700 text-white shadow-md shadow-brand-600/30">
           <app-icone nome="checklist" />
         </span>
-        <span>Conformidade <span class="font-normal text-brand-300">· Sistemas</span></span>
+        <span>Conformidade <span class="font-normal text-brand-600 dark:text-brand-300">· Sistemas</span></span>
       </a>
 
       <div class="flex gap-1 text-sm">
         <a
           routerLink="/"
-          routerLinkActive="bg-surface-3 !text-ink"
+          routerLinkActive="bg-brand-50 text-brand-700! dark:bg-surface-3 dark:text-ink!"
           [routerLinkActiveOptions]="{ exact: true }"
-          class="rounded-md px-3 py-1.5 text-muted transition-colors hover:text-ink"
+          class="rounded-md px-3 py-1.5 font-medium text-muted transition-colors hover:text-ink"
         >
           Sistemas
         </a>
       </div>
+
+      <button
+        type="button"
+        class="btn btn-ghost ml-auto p-2 text-muted hover:text-ink"
+        aria-label="Alternar tema"
+        [title]="tema.escuro() ? 'Usar tema claro' : 'Usar tema escuro'"
+        (click)="tema.alternar()"
+      >
+        <app-icone [nome]="tema.escuro() ? 'sol' : 'lua'" [tamanho]="18" />
+      </button>
     </div>
   </nav>
 

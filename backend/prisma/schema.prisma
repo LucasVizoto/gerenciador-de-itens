@@ -18,10 +18,12 @@ enum StatusItem {
 /// OBRIGATORIO: eliminatório (meta de 100%).
 /// ESSENCIAL: entra no percentual de atendimento do edital.
 /// COMPLEMENTAR: apresentado, mas fora do cálculo (ex.: relatórios).
+/// DISPENSADO: dispensado da POC; listado para consulta, mas fora do cálculo.
 enum TipoItem {
   OBRIGATORIO
   ESSENCIAL
   COMPLEMENTAR
+  DISPENSADO
 }
 
 /// Sistema apresentado. Os itens do edital e a avaliação de conformidade pertencem a ele.

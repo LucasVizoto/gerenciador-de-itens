@@ -27,7 +27,7 @@ export interface ResumoEdital {
 
 /**
  * Regra de cálculo da apresentação: percentual = essenciais atendidos ÷ total de essenciais.
- * Pendentes não contam como atendidos; complementares ficam fora do cálculo;
+ * Pendentes não contam como atendidos; complementares e dispensados da POC ficam fora do cálculo;
  * todos os obrigatórios precisam estar atendidos.
  */
 export function calcularResumo(contagens: ContagemItens[], metaPercentual: number): ResumoEdital {

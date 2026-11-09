@@ -269,14 +269,18 @@ Complementar;26;Relatórios complementares;Emitir relatório de abastecimentos p
 | Status | `Status`, `Situação`, `Avaliação`, `Atende`, `Conformidade`, `Resultado` |
 | Observação | `Observação`, `Obs`, `Comentário`, `Justificativa`, `Nota` |
 
+**Colunas ignoradas.** `Área`, `Sistema` e qualquer coluna com a palavra `DEV` no nome (ex.: `Status (DEV)`) são descartadas antes do mapeamento: nunca viram etapa nem status. Assim, numa planilha como `Item,Área,Sistema,Descrição do item,Tipo,Status (DEV)`, os itens chegam todos como **Pendente** e **sem etapa**, na ordem da planilha. A resposta da importação lista essas colunas em `colunasIgnoradas`.
+
 **Valores interpretados:**
 
-- **Tipo:** `Obrigatório` (também "mandatório", "eliminatório"), `Essencial` (padrão, também "funcional", "requisito") e `Complementar` (também "relatório", "opcional", "desejável").
+- **Tipo:** `Obrigatório` (também "mandatório", "eliminatório"), `Essencial` (padrão, também "funcional", "requisito"), `Complementar` (também "relatório", "opcional", "desejável") e `Dispensado da POC` (também "dispensado", "não se aplica"). Itens dispensados são importados e exibidos, mas ficam fora do cálculo da meta.
+- **Linhas de título:** linhas cujo Tipo é `Título`, `Subtítulo`, `Cabeçalho` ou `Seção` são cabeçalhos de seção da planilha. Elas são descartadas sem aviso (não viram itens nem etapas) e contadas em `titulosIgnorados`.
 - **Status:** `Atende` (também sim, s, ok, ✓), `Não atende` (também não, n, x, ✕) e `Pendente`. Status vazio significa pendente para itens novos e mantém o valor atual para itens existentes. "Parcial" não é aceito: a linha gera um aviso e o item fica pendente.
 
 **Comportamento da importação:**
 
-- **Atualiza, não duplica:** um item com o mesmo *tipo + numeração* de um item existente tem a descrição, a etapa, o status e a observação atualizados. Células vazias de etapa, status e observação não apagam o que já existe.
+- **Atualiza, não duplica:** obrigatórios têm numeração própria e os demais tipos (essencial, complementar, dispensado) compartilham uma única sequência. Um item com a mesma numeração de um item existente na mesma sequência tem a descrição, o tipo, a etapa, o status e a observação atualizados; por isso, trocar um item de Essencial para Dispensado na planilha atualiza o item em vez de duplicá-lo. Células vazias de etapa, status e observação não apagam o que já existe.
+- Cada item existente é atualizado no máximo uma vez por importação. Se a mesma numeração se repete na planilha, a primeira ocorrência atualiza o item e as seguintes são criadas como itens novos, com aviso. Se já existem vários itens com a mesma numeração, é atualizado o de mesmo tipo (ou o mais antigo, com aviso).
 - Etapas que não existem são criadas no fim da lista, e itens sem etapa ficam em "Sem etapa definida".
 - O delimitador (`;`, `,`, tab ou `|`) é detectado automaticamente, assim como a codificação (UTF-8, com ou sem BOM, ou Windows-1252, o padrão do Excel no Windows).
 - Linhas de título antes do cabeçalho são ignoradas: o cabeçalho é procurado nas 10 primeiras linhas.
@@ -293,7 +297,7 @@ As regras seguem o checklist de referência:
 - **Percentual = essenciais atendidos ÷ total de essenciais.** Apenas "Atende" conta. "Pendente" não conta como atendido.
 - **Mínimo necessário = arredondamento para cima de (total de essenciais × meta ÷ 100).** Na demonstração são 35 de 41 (85,4%) com meta de 85%.
 - **Obrigatórios precisam de 100%.**
-- **Complementares não entram no cálculo.**
+- **Complementares e dispensados da POC não entram no cálculo.**
 - A **meta é atingida** quando o mínimo de essenciais e todos os obrigatórios estão atendidos.
 - O painel avisa quando a **meta fica inalcançável**, isto é, quando os atendidos somados aos pendentes não chegam ao mínimo.
 
@@ -325,11 +329,11 @@ Todas as rotas usam o prefixo `/api`. As entradas são validadas com Zod e os er
 | PATCH | `/categorias/:id` | renomeia etapa |
 | DELETE | `/categorias/:id` | remove etapa (os itens ficam sem etapa) |
 | PUT | `/sistemas/:id/categorias/ordem` | reordena etapas `{ ids: [...] }` |
-| POST | `/sistemas/:id/itens` | cria item `{ descricao, numero?, tipo?, categoriaId?, observacao? }` |
+| POST | `/sistemas/:id/itens` | cria item `{ descricao, numero?, tipo?, categoriaId?, observacao? }`; `tipo`: `OBRIGATORIO`, `ESSENCIAL` (padrão), `COMPLEMENTAR` ou `DISPENSADO` |
 | PATCH | `/itens/:id` | atualiza item, incluindo `status`: `PENDENTE`, `ATENDE` ou `NAO_ATENDE` |
 | DELETE | `/itens/:id` | remove item |
 | PUT | `/sistemas/:id/itens/ordem` | grava a ordem e a etapa dos itens `{ itens: [{ id, categoriaId, ordem }] }` |
-| POST | `/sistemas/:id/itens/importar` | upload `multipart/form-data` do CSV (campo `arquivo`) |
+| POST | `/sistemas/:id/itens/importar` | upload `multipart/form-data` do CSV (campo `arquivo`); responde `{ arquivo, linhasLidas, criados, atualizados, categoriasCriadas, colunas, colunasIgnoradas, titulosIgnorados, avisos }` |
 
 Exemplos com `curl`:
 

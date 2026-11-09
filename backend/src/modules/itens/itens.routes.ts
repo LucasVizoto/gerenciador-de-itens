@@ -121,6 +121,9 @@ export async function itensRoutes(app: FastifyInstance) {
       dados: { criados: resultado.criados, atualizados: resultado.atualizados },
       origem: origemDa(request),
     });
+    if (resultado.categoriasCriadas.length) {
+      publicar(sistemaId, { tipo: 'categorias.alteradas', origem: origemDa(request) });
+    }
     return resultado;
   });
 }

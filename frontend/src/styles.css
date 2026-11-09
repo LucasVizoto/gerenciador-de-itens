@@ -1,0 +1,131 @@
+@import 'tailwindcss';
+
+/* Paleta escura derivada do verde-petróleo do painel de POC (#123f3c / #27825d). */
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  --color-canvas: #08110f;
+  --color-surface: #0e1a18;
+  --color-surface-2: #122220;
+  --color-surface-3: #182b28;
+  --color-line: #1d322e;
+  --color-line-strong: #2a4741;
+  --color-ink: #e6efeb;
+  --color-ink-soft: #c3d4cd;
+  --color-muted: #86a298;
+  --color-faint: #5c776e;
+
+  --color-brand-950: #071b19;
+  --color-brand-900: #0c2e2b;
+  --color-brand-800: #123f3c;
+  --color-brand-700: #1a5e49;
+  --color-brand-600: #27825d;
+  --color-brand-500: #2f9c6e;
+  --color-brand-400: #4cc08a;
+  --color-brand-300: #86dbb1;
+  --color-brand-200: #b5d2c4;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-ink antialiased;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-brand-500) 45%, transparent);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-line bg-surface;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-line-strong bg-surface px-3.5 py-2.5 text-sm font-medium whitespace-nowrap text-ink-soft transition-colors hover:border-brand-500 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-400 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply border-brand-500 bg-brand-600 text-white hover:border-brand-400 hover:bg-brand-500 hover:text-white;
+  }
+
+  .btn-ghost {
+    @apply border-transparent bg-transparent hover:border-transparent hover:bg-surface-3;
+  }
+
+  .btn-danger {
+    @apply hover:border-rose-500/70 hover:text-rose-300;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-line-strong bg-canvas px-3 py-2.5 text-sm text-ink transition-colors placeholder:text-faint focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25 focus:outline-none;
+  }
+
+  .label {
+    @apply mb-1.5 block text-xs font-medium tracking-wide text-muted;
+  }
+
+  .eyebrow {
+    @apply text-[11px] font-semibold tracking-[0.2em] text-brand-200 uppercase;
+  }
+
+  .spinner {
+    @apply inline-block size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent;
+  }
+}
+
+/* Angular CDK drag-and-drop */
+.cdk-drag-preview {
+  @apply rounded-xl border border-brand-500/60 bg-surface-2 shadow-2xl shadow-black/60;
+  box-sizing: border-box;
+}
+
+.cdk-drag-placeholder {
+  opacity: 0.3;
+}
+
+.cdk-drag-animating,
+.cdk-drop-list-dragging .cdk-drag:not(.cdk-drag-placeholder) {
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* Impressão: fundo claro e apenas a marcação escolhida em cada item, como no checklist original. */
+@media print {
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    background: #fff;
+    color: #111;
+  }
+
+  .print-claro,
+  .print-claro * {
+    background: transparent !important;
+    color: #111 !important;
+    border-color: #d4d4d4 !important;
+    box-shadow: none !important;
+  }
+
+  .status-btn:not([aria-pressed='true']) {
+    display: none !important;
+  }
+
+  section {
+    break-inside: auto;
+  }
+
+  app-item-linha {
+    break-inside: avoid;
+  }
+}

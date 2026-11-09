@@ -1,0 +1,103 @@
+<header class="border-b border-line bg-linear-to-br from-brand-800 via-brand-900 to-brand-950">
+  <div class="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-6 px-4 py-10 sm:px-6">
+    <div>
+      <p class="eyebrow">Painel de conformidade</p>
+      <h1 class="mt-3 text-3xl font-bold tracking-tight text-white">Sistemas</h1>
+      <p class="mt-2 max-w-2xl leading-relaxed text-brand-200/90">
+        Cada sistema reúne os itens do edital em que ele é apresentado. Clique no sistema para importar a planilha e marcar o atendimento.
+      </p>
+    </div>
+    <button type="button" class="btn btn-primary" (click)="criando.set(true)">
+      <app-icone nome="mais" /> Novo sistema
+    </button>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+  @if (carregando()) {
+    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      @for (i of [1, 2, 3]; track i) {
+        <div class="card h-56 animate-pulse bg-surface-2"></div>
+      }
+    </div>
+  } @else {
+    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      @for (sistema of sistemas(); track sistema.id) {
+        <article class="card group relative flex flex-col p-5 transition-colors hover:border-brand-600 hover:bg-surface-2">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="truncate text-xs font-semibold tracking-wide text-muted uppercase">{{ sistema.numero || 'Edital' }}</p>
+              <h2 class="mt-1 truncate text-lg font-semibold text-ink group-hover:text-white">
+                <a [routerLink]="['/sistemas', sistema.id]" class="after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none">
+                  {{ sistema.nome }}{{ sistema.versao ? ' · v' + sistema.versao : '' }}
+                </a>
+              </h2>
+            </div>
+            @if (sistema.resumo.metaAtingida) {
+              <span class="shrink-0 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">Meta atingida</span>
+            } @else if (sistema.resumo.totalItens === 0) {
+              <span class="shrink-0 rounded-full bg-surface-3 px-2.5 py-1 text-[11px] font-semibold text-muted">Sem itens</span>
+            } @else {
+              <span class="shrink-0 rounded-full bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-300">Em avaliação</span>
+            }
+          </div>
+
+          <div class="mt-3 space-y-1.5 text-sm text-muted">
+            @if (sistema.descricao) {
+              <p class="flex items-center gap-2">
+                <app-icone nome="monitor" [tamanho]="14" />
+                <span class="truncate text-ink-soft">{{ sistema.descricao }}</span>
+              </p>
+            }
+            @if (sistema.orgao) {
+              <p class="flex items-center gap-2"><app-icone nome="predio" [tamanho]="14" /><span class="truncate">{{ sistema.orgao }}</span></p>
+            }
+            @if (sistema.dataApresentacao) {
+              <p class="flex items-center gap-2"><app-icone nome="calendario" [tamanho]="14" />{{ formatarData(sistema.dataApresentacao) }}</p>
+            }
+          </div>
+
+          <div class="mt-auto pt-5">
+            <div class="flex items-baseline justify-between text-xs">
+              <span class="text-muted">Essenciais · meta {{ sistema.metaPercentual }}%</span>
+              <span class="font-semibold text-ink tabular-nums">{{ formatarPercentual(sistema.resumo.essenciais.percentual) }}</span>
+            </div>
+            <div class="relative mt-2 h-2 overflow-hidden rounded-full bg-surface-3">
+              <div class="h-full rounded-full bg-brand-500 transition-all" [style.width.%]="sistema.resumo.essenciais.percentual"></div>
+              <div class="absolute inset-y-0 w-0.5 bg-white/60" [style.left.%]="sistema.metaPercentual"></div>
+            </div>
+            <div class="mt-3 flex items-center justify-between text-xs text-muted">
+              <span>
+                {{ sistema.resumo.essenciais.atendidos }}/{{ sistema.resumo.essenciais.total }} essenciais ·
+                {{ sistema.resumo.obrigatorios.atendidos }}/{{ sistema.resumo.obrigatorios.total }} obrigatórios
+              </span>
+              <button
+                type="button"
+                class="relative z-10 rounded-md p-1.5 text-faint transition group-hover:opacity-100 hover:bg-rose-500/10 hover:text-rose-300 focus:opacity-100 md:opacity-0"
+                [attr.aria-label]="'Excluir sistema ' + sistema.nome"
+                (click)="remover(sistema, $event)"
+              >
+                <app-icone nome="lixeira" [tamanho]="14" />
+              </button>
+            </div>
+          </div>
+        </article>
+      } @empty {
+        <div class="card col-span-full flex flex-col items-center px-6 py-16 text-center">
+          <span class="grid size-12 place-items-center rounded-xl bg-brand-900 text-brand-300"><app-icone nome="monitor" [tamanho]="22" /></span>
+          <h2 class="mt-4 text-lg font-semibold">Nenhum sistema cadastrado</h2>
+          <p class="mt-1 max-w-md text-sm text-muted">
+            Cadastre o sistema que será apresentado e, na tela seguinte, importe o CSV com os itens do edital.
+          </p>
+          <button type="button" class="btn btn-primary mt-6" (click)="criando.set(true)"><app-icone nome="mais" /> Novo sistema</button>
+        </div>
+      }
+    </div>
+  }
+</main>
+
+<app-modal titulo="Novo sistema" [aberto]="criando()" (fechado)="criando.set(false)">
+  @if (criando()) {
+    <app-sistema-form [salvando]="salvando()" (salvar)="criar($event)" (cancelar)="criando.set(false)" />
+  }
+</app-modal>

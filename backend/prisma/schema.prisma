@@ -1,0 +1,85 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum StatusItem {
+  PENDENTE
+  ATENDE
+  NAO_ATENDE
+}
+
+/// OBRIGATORIO: eliminatório (meta de 100%).
+/// ESSENCIAL: entra no percentual de atendimento do edital.
+/// COMPLEMENTAR: apresentado, mas fora do cálculo (ex.: relatórios).
+enum TipoItem {
+  OBRIGATORIO
+  ESSENCIAL
+  COMPLEMENTAR
+}
+
+/// Sistema apresentado. Os itens do edital e a avaliação de conformidade pertencem a ele.
+model Sistema {
+  id               String      @id @default(uuid()) @db.Uuid
+  nome             String
+  versao           String?
+  descricao        String?
+  /// Número do edital em que este sistema é apresentado.
+  numero           String?
+  orgao            String?
+  objeto           String?
+  dataApresentacao DateTime?   @map("data_apresentacao") @db.Date
+  /// Percentual mínimo de itens essenciais atendidos.
+  metaPercentual   Int         @default(85) @map("meta_percentual")
+  categorias       Categoria[]
+  itens            Item[]
+  criadoEm         DateTime    @default(now()) @map("criado_em")
+  atualizadoEm     DateTime    @updatedAt @map("atualizado_em")
+
+  @@map("sistemas")
+}
+
+/// Etapa/processo da apresentação (ex.: "Cadastros básicos", "Abastecimento").
+model Categoria {
+  id           String   @id @default(uuid()) @db.Uuid
+  sistemaId    String   @map("sistema_id") @db.Uuid
+  sistema      Sistema  @relation(fields: [sistemaId], references: [id], onDelete: Cascade)
+  nome         String
+  ordem        Int      @default(0)
+  itens        Item[]
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  @@unique([sistemaId, nome])
+  @@index([sistemaId, ordem])
+  @@map("categorias")
+}
+
+/// Requisito do edital avaliado durante a apresentação.
+model Item {
+  id           String     @id @default(uuid()) @db.Uuid
+  sistemaId    String     @map("sistema_id") @db.Uuid
+  sistema      Sistema    @relation(fields: [sistemaId], references: [id], onDelete: Cascade)
+  categoriaId  String?    @map("categoria_id") @db.Uuid
+  categoria    Categoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
+  /// Numeração do item no edital (ex.: "12", "3.1.2").
+  numero       String?
+  descricao    String
+  tipo         TipoItem   @default(ESSENCIAL)
+  status       StatusItem @default(PENDENTE)
+  observacao   String?
+  /// Posição do item dentro da etapa.
+  ordem        Int        @default(0)
+  criadoEm     DateTime   @default(now()) @map("criado_em")
+  atualizadoEm DateTime   @updatedAt @map("atualizado_em")
+
+  @@index([sistemaId, categoriaId, ordem])
+  @@index([sistemaId, tipo, numero])
+  @@map("itens")
+}

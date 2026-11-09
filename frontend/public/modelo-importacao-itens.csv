@@ -1,0 +1,7 @@
+﻿Tipo;Item;Etapa;Requisito;Status;Observação
+Obrigatório;1;Abertura · requisitos obrigatórios;Sistema nativo da WEB e compatível com os principais navegadores do mercado em suas versões atuais.;;
+Obrigatório;2;Abertura · requisitos obrigatórios;O acesso deverá ser realizado através de perfis de operadores (login/senha) individuais com níveis de acesso.;;
+Essencial;2;Cadastros básicos;Permitir o cadastro de combustíveis com descrição, abreviatura e vínculo ao código de materiais de consumo.;;
+Essencial;3;Cadastros básicos;Permitir o cadastro de categorias de uso para os veículos (utilitários, passeio e carga).;Atende;
+Essencial;15;Abastecimento;"Possuir rotina de controle de abastecimentos, com autorização e baixa em duas etapas; ou em uma etapa.";Não atende;Demonstrar a emissão da autorização
+Complementar;26;Relatórios complementares;Emitir relatório de abastecimentos por veículo e período.;;

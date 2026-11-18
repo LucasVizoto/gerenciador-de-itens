@@ -1,14 +1,18 @@
+import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import { ZodError, z } from 'zod';
 import { env } from './config/env.js';
 import { Prisma } from './generated/prisma/client.js';
+import { autenticar } from './lib/autenticacao.js';
 import { prisma } from './lib/prisma.js';
+import { authRoutes } from './modules/auth/auth.routes.js';
 import { categoriasRoutes } from './modules/categorias/categorias.routes.js';
 import { eventosRoutes } from './modules/eventos/eventos.routes.js';
 import { itensRoutes } from './modules/itens/itens.routes.js';
 import { sistemasRoutes } from './modules/sistemas/sistemas.routes.js';
+import { usuariosRoutes } from './modules/usuarios/usuarios.routes.js';
 
 z.config(z.locales.ptBR());
 
@@ -50,8 +54,10 @@ export async function buildApp() {
   await app.register(cors, {
     origin: env.CORS_ORIGIN === '*' ? true : env.CORS_ORIGIN.split(',').map((origem) => origem.trim()),
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    credentials: true,
     exposedHeaders: ['content-disposition'],
   });
+  await app.register(cookie);
   await app.register(multipart, {
     limits: { fileSize: env.UPLOAD_MAX_MB * 1024 * 1024, files: 1 },
   });
@@ -63,10 +69,15 @@ export async function buildApp() {
 
   await app.register(
     async (api) => {
+      // Todas as rotas da API exigem login, exceto as públicas listadas em autenticacao.ts.
+      api.addHook('preHandler', autenticar);
+
       api.get('/health', { logLevel: 'warn' }, async () => {
         await prisma.$queryRaw`SELECT 1`;
         return { status: 'ok' };
       });
+      await api.register(authRoutes);
+      await api.register(usuariosRoutes);
       await api.register(sistemasRoutes);
       await api.register(categoriasRoutes);
       await api.register(itensRoutes);

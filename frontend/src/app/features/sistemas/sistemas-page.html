@@ -1,11 +1,18 @@
-<header class="border-b border-line bg-linear-to-br from-brand-800 via-brand-900 to-brand-950">
+<header #cabecalho class="border-b border-line bg-linear-to-br from-brand-800 via-brand-900 to-brand-950">
   <div class="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-6 px-4 py-10 sm:px-6">
     <div>
       <p class="eyebrow">Painel de conformidade</p>
-      <h1 class="mt-3 text-3xl font-bold tracking-tight text-white">Sistemas</h1>
-      <p class="mt-2 max-w-2xl leading-relaxed text-brand-200/90">
-        Cada sistema reúne os itens do edital em que ele é apresentado. Clique no sistema para importar a planilha e marcar o atendimento.
-      </p>
+      @if (somenteFavoritos()) {
+        <h1 class="mt-3 text-3xl font-bold tracking-tight text-white">Favoritos</h1>
+        <p class="mt-2 max-w-2xl leading-relaxed text-brand-200/90">
+          Os sistemas que você marcou com o coração. Clique no coração de novo para tirá-lo desta lista.
+        </p>
+      } @else {
+        <h1 class="mt-3 text-3xl font-bold tracking-tight text-white">Sistemas</h1>
+        <p class="mt-2 max-w-2xl leading-relaxed text-brand-200/90">
+          Cada sistema reúne os itens do edital em que ele é apresentado. Clique no sistema para importar a planilha e marcar o atendimento.
+        </p>
+      }
     </div>
     <button type="button" class="btn btn-primary" (click)="criando.set(true)">
       <app-icone nome="mais" /> Novo sistema
@@ -33,13 +40,26 @@
                 </a>
               </h2>
             </div>
-            @if (sistema.resumo.metaAtingida) {
-              <span class="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300">Meta atingida</span>
-            } @else if (sistema.resumo.totalItens === 0) {
-              <span class="shrink-0 rounded-full border border-line bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-muted dark:bg-surface-3">Sem itens</span>
-            } @else {
-              <span class="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">Em avaliação</span>
-            }
+            <div class="flex shrink-0 items-center gap-1.5">
+              @if (sistema.resumo.metaAtingida) {
+                <span class="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300">Meta atingida</span>
+              } @else if (sistema.resumo.totalItens === 0) {
+                <span class="shrink-0 rounded-full border border-line bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-muted dark:bg-surface-3">Sem itens</span>
+              } @else {
+                <span class="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">Em avaliação</span>
+              }
+              <button
+                type="button"
+                class="relative z-10 -mr-1.5 -mt-1 rounded-md p-1.5 transition-colors"
+                [class]="sistema.favorito ? 'text-rose-500 dark:text-rose-400' : 'text-faint hover:text-rose-500 dark:hover:text-rose-300'"
+                [attr.aria-pressed]="sistema.favorito"
+                [attr.aria-label]="(sistema.favorito ? 'Remover dos favoritos: ' : 'Adicionar aos favoritos: ') + sistema.nome"
+                [title]="sistema.favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos'"
+                (click)="alternarFavorito(sistema, $event)"
+              >
+                <app-icone nome="coracao" [tamanho]="18" [preenchido]="sistema.favorito" />
+              </button>
+            </div>
           </div>
 
           <div class="mt-3 space-y-1.5 text-sm text-muted">
@@ -83,14 +103,25 @@
           </div>
         </article>
       } @empty {
-        <div class="card col-span-full flex flex-col items-center px-6 py-16 text-center">
-          <span class="grid size-12 place-items-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900 dark:text-brand-300"><app-icone nome="monitor" [tamanho]="22" /></span>
-          <h2 class="mt-4 text-lg font-semibold">Nenhum sistema cadastrado</h2>
-          <p class="mt-1 max-w-md text-sm text-muted">
-            Cadastre o sistema que será apresentado e, na tela seguinte, importe o CSV com os itens do edital.
-          </p>
-          <button type="button" class="btn btn-primary mt-6" (click)="criando.set(true)"><app-icone nome="mais" /> Novo sistema</button>
-        </div>
+        @if (somenteFavoritos()) {
+          <div class="card col-span-full flex flex-col items-center px-6 py-16 text-center">
+            <span class="grid size-12 place-items-center rounded-xl bg-rose-50 text-rose-500 dark:bg-rose-500/10 dark:text-rose-300"><app-icone nome="coracao" [tamanho]="22" /></span>
+            <h2 class="mt-4 text-lg font-semibold">Nenhum sistema favoritado</h2>
+            <p class="mt-1 max-w-md text-sm text-muted">
+              Na lista de sistemas, clique no coração no canto superior direito de um sistema para encontrá-lo aqui.
+            </p>
+            <a routerLink="/" class="btn btn-primary mt-6"><app-icone nome="monitor" /> Ver sistemas</a>
+          </div>
+        } @else {
+          <div class="card col-span-full flex flex-col items-center px-6 py-16 text-center">
+            <span class="grid size-12 place-items-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900 dark:text-brand-300"><app-icone nome="monitor" [tamanho]="22" /></span>
+            <h2 class="mt-4 text-lg font-semibold">Nenhum sistema cadastrado</h2>
+            <p class="mt-1 max-w-md text-sm text-muted">
+              Cadastre o sistema que será apresentado e, na tela seguinte, importe o CSV com os itens do edital.
+            </p>
+            <button type="button" class="btn btn-primary mt-6" (click)="criando.set(true)"><app-icone nome="mais" /> Novo sistema</button>
+          </div>
+        }
       }
     </div>
   }
@@ -101,3 +132,5 @@
     <app-sistema-form [salvando]="salvando()" (salvar)="criar($event)" (cancelar)="criando.set(false)" />
   }
 </app-modal>
+
+<app-voltar-topo [alvo]="cabecalho" />

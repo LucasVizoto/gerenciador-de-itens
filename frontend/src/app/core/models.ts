@@ -53,6 +53,24 @@ export interface Resumo {
 
 export interface SistemaComResumo extends Sistema {
   resumo: Resumo;
+  /** Favoritado pelo usuário logado. */
+  favorito: boolean;
+}
+
+export interface Usuario {
+  id: string;
+  email: string;
+  nomeCompleto: string;
+  ativo: boolean;
+  administrador: boolean;
+  criadoEm: string;
+  atualizadoEm: string;
+}
+
+export interface DadosCadastro {
+  nomeCompleto: string;
+  email: string;
+  senha: string;
 }
 
 export interface SistemaDetalhe extends Sistema {
@@ -106,6 +124,7 @@ export interface EventoEdital {
     | 'item.criado'
     | 'item.atualizado'
     | 'item.removido'
+    | 'itens.removidos'
     | 'itens.reordenados'
     | 'itens.importados'
     | 'itens.reiniciados'

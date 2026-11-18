@@ -3,12 +3,13 @@ import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/
 import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from '@angular/router';
 
 import { routes } from './app.routes';
+import { sessaoExpiradaInterceptor } from './core/auth.guards';
 import { clientIdInterceptor } from './core/client-id';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes, withComponentInputBinding(), withInMemoryScrolling({ scrollPositionRestoration: 'top' })),
-    provideHttpClient(withFetch(), withInterceptors([clientIdInterceptor])),
+    provideHttpClient(withFetch(), withInterceptors([clientIdInterceptor, sessaoExpiradaInterceptor])),
   ],
 };

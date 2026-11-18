@@ -11,6 +11,7 @@ import type {
   Sistema,
   SistemaComResumo,
   SistemaDetalhe,
+  Usuario,
 } from './models';
 
 /** Sempre relativo: em dev o proxy do Angular encaminha /api, no Docker quem encaminha é o Nginx. */
@@ -24,8 +25,29 @@ export class ApiService {
     return firstValueFrom(requisicao);
   }
 
-  listarSistemas() {
-    return this.enviar(this.http.get<SistemaComResumo[]>(`${API}/sistemas`));
+  listarSistemas(somenteFavoritos = false) {
+    const params = somenteFavoritos ? { favoritos: 'true' } : undefined;
+    return this.enviar(this.http.get<SistemaComResumo[]>(`${API}/sistemas`, { params }));
+  }
+
+  favoritar(sistemaId: string) {
+    return this.enviar(this.http.put<void>(`${API}/sistemas/${sistemaId}/favorito`, {}));
+  }
+
+  desfavoritar(sistemaId: string) {
+    return this.enviar(this.http.delete<void>(`${API}/sistemas/${sistemaId}/favorito`));
+  }
+
+  listarUsuarios() {
+    return this.enviar(this.http.get<Usuario[]>(`${API}/usuarios`));
+  }
+
+  atualizarUsuario(id: string, dados: Partial<Pick<Usuario, 'ativo' | 'administrador'>>) {
+    return this.enviar(this.http.patch<Usuario>(`${API}/usuarios/${id}`, dados));
+  }
+
+  removerUsuario(id: string) {
+    return this.enviar(this.http.delete<void>(`${API}/usuarios/${id}`));
   }
 
   obterSistema(id: string) {
@@ -78,6 +100,10 @@ export class ApiService {
 
   removerItem(id: string) {
     return this.enviar(this.http.delete<void>(`${API}/itens/${id}`));
+  }
+
+  removerItens(sistemaId: string, ids: string[]) {
+    return this.enviar(this.http.post<{ removidos: number }>(`${API}/sistemas/${sistemaId}/itens/excluir`, { ids }));
   }
 
   reordenarItens(sistemaId: string, itens: PosicaoItem[]) {

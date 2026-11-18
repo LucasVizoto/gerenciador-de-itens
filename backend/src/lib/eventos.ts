@@ -5,6 +5,7 @@ export type TipoEvento =
   | 'item.criado'
   | 'item.atualizado'
   | 'item.removido'
+  | 'itens.removidos'
   | 'itens.reordenados'
   | 'itens.importados'
   | 'itens.reiniciados'

@@ -28,7 +28,7 @@ enum TipoItem {
 
 /// Sistema apresentado. Os itens do edital e a avaliação de conformidade pertencem a ele.
 model Sistema {
-  id               String      @id @default(uuid()) @db.Uuid
+  id               String            @id @default(uuid()) @db.Uuid
   nome             String
   versao           String?
   descricao        String?
@@ -36,13 +36,14 @@ model Sistema {
   numero           String?
   orgao            String?
   objeto           String?
-  dataApresentacao DateTime?   @map("data_apresentacao") @db.Date
+  dataApresentacao DateTime?         @map("data_apresentacao") @db.Date
   /// Percentual mínimo de itens essenciais atendidos.
-  metaPercentual   Int         @default(85) @map("meta_percentual")
+  metaPercentual   Int               @default(85) @map("meta_percentual")
   categorias       Categoria[]
   itens            Item[]
-  criadoEm         DateTime    @default(now()) @map("criado_em")
-  atualizadoEm     DateTime    @updatedAt @map("atualizado_em")
+  favoritos        UsuarioFavorito[]
+  criadoEm         DateTime          @default(now()) @map("criado_em")
+  atualizadoEm     DateTime          @updatedAt @map("atualizado_em")
 
   @@map("sistemas")
 }
@@ -84,4 +85,47 @@ model Item {
   @@index([sistemaId, categoriaId, ordem])
   @@index([sistemaId, tipo, numero])
   @@map("itens")
+}
+
+/// Usuário com acesso ao sistema. O e-mail é guardado em minúsculas.
+model Usuario {
+  id            String            @id @default(uuid()) @db.Uuid
+  email         String            @unique
+  senhaHash     String            @map("senha_hash")
+  nomeCompleto  String            @map("nome_completo")
+  /// Usuário inativo não consegue entrar nem usar sessões já abertas.
+  ativo         Boolean           @default(true)
+  administrador Boolean           @default(false)
+  sessoes       Sessao[]
+  favoritos     UsuarioFavorito[]
+  criadoEm      DateTime          @default(now()) @map("criado_em")
+  atualizadoEm  DateTime          @updatedAt @map("atualizado_em")
+
+  @@map("usuarios")
+}
+
+/// Sessão de login. O cookie guarda o token; o banco guarda apenas o SHA-256 dele.
+model Sessao {
+  id        String   @id @default(uuid()) @db.Uuid
+  tokenHash String   @unique @map("token_hash")
+  usuarioId String   @map("usuario_id") @db.Uuid
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  expiraEm  DateTime @map("expira_em")
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  @@index([usuarioId])
+  @@map("sessoes")
+}
+
+/// Sistemas favoritados por cada usuário.
+model UsuarioFavorito {
+  usuarioId String   @map("usuario_id") @db.Uuid
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  sistemaId String   @map("sistema_id") @db.Uuid
+  sistema   Sistema  @relation(fields: [sistemaId], references: [id], onDelete: Cascade)
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  @@id([usuarioId, sistemaId])
+  @@index([sistemaId])
+  @@map("usuario_favoritos")
 }

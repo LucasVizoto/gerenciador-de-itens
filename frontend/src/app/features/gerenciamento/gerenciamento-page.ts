@@ -34,6 +34,7 @@ import { EtapasPainel, type MovimentoEtapa, type ProgressoEtapa } from './etapas
 import { ImportarCsv } from './importar-csv';
 import { ItemForm } from './item-form';
 import { ItemLinha } from './item-linha';
+import { VoltarTopo } from '../../shared/voltar-topo';
 import { PainelMeta, situacaoDaMeta } from './painel-meta';
 
 type ModoOrdem = 'etapas' | 'numerica';
@@ -87,6 +88,7 @@ const CAMPOS_CSV: Record<string, string> = {
     ItemForm,
     ItemLinha,
     PainelMeta,
+    VoltarTopo,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './gerenciamento-page.html',
@@ -126,6 +128,7 @@ export class GerenciamentoPage {
   /** Nome digitado na barra de seleção para criar um grupo novo; `null` = campo fechado. */
   protected readonly nomeNovoGrupo = signal<string | null>(null);
   protected readonly movendoSelecao = signal(false);
+  protected readonly excluindoSelecao = signal(false);
 
   protected readonly formatarData = formatarData;
   protected readonly camposCsv = CAMPOS_CSV;
@@ -472,6 +475,27 @@ export class GerenciamentoPage {
     }
   }
 
+  /** Exclui de uma vez todos os itens selecionados, após confirmação. */
+  protected async excluirSelecao() {
+    const ids = [...this.selecionados()];
+    if (!ids.length || this.excluindoSelecao()) return;
+    const quantidade = plural(ids.length, 'item selecionado', 'itens selecionados');
+    if (!confirm(`Excluir ${quantidade}? Esta ação não pode ser desfeita.`)) return;
+
+    this.excluindoSelecao.set(true);
+    try {
+      const { removidos } = await this.api.removerItens(this.id(), ids);
+      const excluidos = new Set(ids);
+      this.itens.update((lista) => lista.filter((i) => !excluidos.has(i.id)));
+      this.limparSelecao();
+      this.toast.sucesso(`${plural(removidos, 'item excluído', 'itens excluídos')}.`);
+    } catch (erro) {
+      this.toast.erro(mensagemDeErro(erro));
+    } finally {
+      this.excluindoSelecao.set(false);
+    }
+  }
+
   // ----- Recolher / expandir grupos -----
 
   protected alternarRecolhido(id: string) {
@@ -635,6 +659,11 @@ export class GerenciamentoPage {
       case 'item.removido': {
         const { id } = evento.dados as { id: string };
         this.itens.update((lista) => lista.filter((i) => i.id !== id));
+        break;
+      }
+      case 'itens.removidos': {
+        const ids = new Set((evento.dados as { ids: string[] }).ids);
+        this.itens.update((lista) => lista.filter((i) => !ids.has(i.id)));
         break;
       }
       case 'itens.reordenados':

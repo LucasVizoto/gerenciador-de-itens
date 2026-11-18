@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { usuarioDa } from '../../lib/autenticacao.js';
 import { origemDa, publicar } from '../../lib/eventos.js';
 import { HttpError } from '../../lib/http-error.js';
 import { prisma } from '../../lib/prisma.js';
@@ -22,22 +23,60 @@ const corpoSistema = z.object({
   metaPercentual: z.number().int().min(1).max(100).default(85),
 });
 
+const filtroLista = z.object({
+  favoritos: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((valor) => valor === 'true'),
+});
+
 export async function sistemasRoutes(app: FastifyInstance) {
-  app.get('/sistemas', async () => {
-    const [sistemas, contagens] = await Promise.all([
-      prisma.sistema.findMany({ orderBy: { criadoEm: 'desc' } }),
+  /** Lista os sistemas com os favoritos do usuário primeiro; `?favoritos=true` traz só os favoritos. */
+  app.get('/sistemas', async (request) => {
+    const usuario = usuarioDa(request);
+    const { favoritos: somenteFavoritos } = filtroLista.parse(request.query);
+    const favoritoDoUsuario = { favoritos: { some: { usuarioId: usuario.id } } };
+
+    const [sistemas, favoritos, contagens] = await Promise.all([
+      prisma.sistema.findMany({
+        where: somenteFavoritos ? favoritoDoUsuario : undefined,
+        orderBy: { criadoEm: 'desc' },
+      }),
+      prisma.usuarioFavorito.findMany({ where: { usuarioId: usuario.id }, select: { sistemaId: true } }),
       prisma.item.groupBy({ by: ['sistemaId', 'tipo', 'status'], _count: { _all: true } }),
     ]);
+    const idsFavoritos = new Set(favoritos.map((f) => f.sistemaId));
 
-    return sistemas.map((sistema) => ({
-      ...sistema,
-      resumo: calcularResumo(
-        contagens
-          .filter((c) => c.sistemaId === sistema.id)
-          .map((c) => ({ tipo: c.tipo, status: c.status, quantidade: c._count._all })),
-        sistema.metaPercentual,
-      ),
-    }));
+    return sistemas
+      .map((sistema) => ({
+        ...sistema,
+        favorito: idsFavoritos.has(sistema.id),
+        resumo: calcularResumo(
+          contagens
+            .filter((c) => c.sistemaId === sistema.id)
+            .map((c) => ({ tipo: c.tipo, status: c.status, quantidade: c._count._all })),
+          sistema.metaPercentual,
+        ),
+      }))
+      .sort((a, b) => Number(b.favorito) - Number(a.favorito));
+  });
+
+  app.put('/sistemas/:id/favorito', async (request, reply) => {
+    const usuario = usuarioDa(request);
+    const { id } = parametroId.parse(request.params);
+    await prisma.usuarioFavorito.upsert({
+      where: { usuarioId_sistemaId: { usuarioId: usuario.id, sistemaId: id } },
+      create: { usuarioId: usuario.id, sistemaId: id },
+      update: {},
+    });
+    return reply.status(204).send();
+  });
+
+  app.delete('/sistemas/:id/favorito', async (request, reply) => {
+    const usuario = usuarioDa(request);
+    const { id } = parametroId.parse(request.params);
+    await prisma.usuarioFavorito.deleteMany({ where: { usuarioId: usuario.id, sistemaId: id } });
+    return reply.status(204).send();
   });
 
   app.post('/sistemas', async (request, reply) => {

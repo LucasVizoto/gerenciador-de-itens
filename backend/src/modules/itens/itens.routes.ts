@@ -40,6 +40,10 @@ const corpoOrdem = z.object({
     .max(5_000),
 });
 
+const corpoExclusao = z.object({
+  ids: z.array(z.uuid('Item inválido')).min(1, 'Selecione ao menos um item').max(5_000),
+});
+
 export async function itensRoutes(app: FastifyInstance) {
   app.post('/sistemas/:sistemaId/itens', async (request, reply) => {
     const { sistemaId } = parametroSistemaId.parse(request.params);
@@ -80,6 +84,21 @@ export async function itensRoutes(app: FastifyInstance) {
     const item = await prisma.item.delete({ where: { id } });
     publicar(item.sistemaId, { tipo: 'item.removido', dados: { id }, origem: origemDa(request) });
     return reply.status(204).send();
+  });
+
+  /** Exclusão em lote dos itens selecionados; ignora ids que não pertencem ao sistema. */
+  app.post('/sistemas/:sistemaId/itens/excluir', async (request) => {
+    const { sistemaId } = parametroSistemaId.parse(request.params);
+    const { ids } = corpoExclusao.parse(request.body);
+    await garantirSistema(sistemaId);
+
+    const unicos = [...new Set(ids)];
+    const removidos = await prisma.item.findMany({ where: { sistemaId, id: { in: unicos } }, select: { id: true } });
+    const idsRemovidos = removidos.map((item) => item.id);
+    await prisma.item.deleteMany({ where: { sistemaId, id: { in: idsRemovidos } } });
+
+    publicar(sistemaId, { tipo: 'itens.removidos', dados: { ids: idsRemovidos }, origem: origemDa(request) });
+    return { removidos: idsRemovidos.length };
   });
 
   /** Recebe a nova posição (e etapa) dos itens afetados por um arrastar-e-soltar. */

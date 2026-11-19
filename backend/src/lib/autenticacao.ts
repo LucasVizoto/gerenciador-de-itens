@@ -17,7 +17,7 @@ export const COOKIE_SESSAO = 'sessao';
 const DURACAO_SESSAO_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Rotas acessíveis sem login (caminho completo, com o prefixo /api). */
-const ROTAS_PUBLICAS = new Set(['/api/health', '/api/auth/login', '/api/auth/cadastro']);
+const ROTAS_PUBLICAS = new Set(['/api/health', '/api/auth/login', '/api/auth/cadastro', '/api/auth/trocar-senha']);
 
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 

@@ -12,16 +12,29 @@ import { AuthService } from '../../core/auth.service';
 import type { Usuario } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
 import { Icone } from '../../shared/icone';
+import { Modal } from '../../shared/modal';
 import { TituloPagina } from '../../shared/titulo-pagina';
 
 type CampoChave = 'ativo' | 'administrador';
 
-const formatoCadastro = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+/** Sem caracteres ambíguos (0/O, 1/l/I) para a senha provisória ser fácil de ditar. */
+const ALFABETO_SENHA = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
 
-/** Gestão de usuários (somente administradores): ativar, promover e excluir. */
+function gerarSenhaProvisoria(tamanho = 10): string {
+  const sorteio = crypto.getRandomValues(new Uint32Array(tamanho));
+  return Array.from(sorteio, (n) => ALFABETO_SENHA[n % ALFABETO_SENHA.length]).join('');
+}
+
+const formatoCadastro = new Intl.DateTimeFormat('pt-BR', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+});
+
+/** Gestão de usuários (somente administradores): ativar, promover, redefinir senha e excluir. */
 @Component({
   selector: 'app-usuarios-page',
-  imports: [Icone, TituloPagina],
+  imports: [Icone, Modal, TituloPagina],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="border-b border-line bg-linear-to-br from-brand-800 via-brand-900 to-brand-950">
@@ -75,6 +88,13 @@ const formatoCadastro = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month
                       @if (!usuario.ativo) {
                         <span class="ml-1.5 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">Aguardando liberação</span>
                       }
+                        @if (usuario.trocarSenha) {
+                          <span
+                            class="ml-1.5 rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-800 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300"
+                            title="Senha redefinida: o usuário vai criar uma nova no próximo acesso"
+                            >Senha provisória</span
+                          >
+                        }
                       @if (proprio) {
                         <span class="ml-1.5 rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700 dark:border-brand-700 dark:bg-brand-900 dark:text-brand-200">Você</span>
                       }
@@ -105,6 +125,15 @@ const formatoCadastro = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month
                       @if (!proprio) {
                         <button
                           type="button"
+                          class="rounded-md p-1.5 text-faint transition-colors hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-500/10 dark:hover:text-brand-300"
+                          [attr.aria-label]="'Redefinir senha de ' + usuario.nomeCompleto"
+                          title="Redefinir senha"
+                          (click)="abrirRedefinicao(usuario)"
+                        >
+                          <app-icone nome="cadeado" [tamanho]="14" />
+                        </button>
+                        <button
+                          type="button"
                           class="rounded-md p-1.5 text-faint transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                           [attr.aria-label]="'Excluir usuário ' + usuario.nomeCompleto"
                           title="Excluir usuário"
@@ -122,6 +151,70 @@ const formatoCadastro = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month
         </div>
       }
     </main>
+
+    <app-modal
+      titulo="Redefinir senha"
+      [aberto]="redefinindo() !== null"
+      (fechado)="redefinindo.set(null)"
+    >
+      @if (redefinindo(); as usuario) {
+        <form
+          class="grid gap-4"
+          (submit)="$event.preventDefault(); redefinirSenha(usuario)"
+          novalidate
+        >
+          <p class="text-sm leading-relaxed text-ink-soft">
+            Defina uma senha provisória para
+            <strong class="text-ink">{{ usuario.nomeCompleto }}</strong>
+            <span class="text-muted"> ({{ usuario.email }})</span>. No próximo acesso, ao entrar com
+            ela, o usuário será obrigado a criar uma nova senha. As sessões abertas dele serão
+            encerradas.
+          </p>
+          <div>
+            <label class="label" for="senha-provisoria">Senha provisória</label>
+            <div class="flex flex-wrap gap-2">
+              <input
+                id="senha-provisoria"
+                class="input min-w-48 flex-1 font-mono tracking-wide"
+                autocomplete="off"
+                spellcheck="false"
+                maxlength="200"
+                [value]="senhaProvisoria()"
+                (input)="senhaProvisoria.set($any($event.target).value)"
+              />
+              <button type="button" class="btn" (click)="senhaProvisoria.set(gerarSenha())">
+                <app-icone nome="reiniciar" [tamanho]="14" /> Gerar outra
+              </button>
+              <button type="button" class="btn" (click)="copiarSenha()">Copiar</button>
+            </div>
+            @if (senhaProvisoria().length < 6) {
+              <p class="mt-1 text-xs text-rose-600 dark:text-rose-300">
+                Use pelo menos 6 caracteres.
+              </p>
+            } @else {
+              <p class="mt-1 text-xs text-muted">
+                Repasse esta senha ao usuário por um canal seguro.
+              </p>
+            }
+          </div>
+          <div class="flex justify-end gap-2 border-t border-line pt-4">
+            <button type="button" class="btn btn-ghost" (click)="redefinindo.set(null)">
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="btn btn-primary"
+              [disabled]="salvando() === usuario.id || senhaProvisoria().length < 6"
+            >
+              @if (salvando() === usuario.id) {
+                <span class="spinner"></span>
+              }
+              Redefinir senha
+            </button>
+          </div>
+        </form>
+      }
+    </app-modal>
   `,
 })
 export class UsuariosPage implements OnInit {
@@ -136,7 +229,13 @@ export class UsuariosPage implements OnInit {
   /** Id do usuário com alteração em andamento. */
   protected readonly salvando = signal<string | null>(null);
   protected readonly ativos = computed(() => this.usuarios().filter((u) => u.ativo).length);
-  protected readonly administradores = computed(() => this.usuarios().filter((u) => u.administrador).length);
+  /** Usuário com o modal de redefinição de senha aberto. */
+  protected readonly redefinindo = signal<Usuario | null>(null);
+  protected readonly senhaProvisoria = signal('');
+  protected readonly gerarSenha = gerarSenhaProvisoria;
+  protected readonly administradores = computed(
+    () => this.usuarios().filter((u) => u.administrador).length,
+  );
 
   /** Data e hora do cadastro, no fuso de quem está vendo. */
   protected formatarCadastro(iso: string) {
@@ -158,6 +257,38 @@ export class UsuariosPage implements OnInit {
     try {
       const atualizado = await this.api.atualizarUsuario(usuario.id, { [campo]: !usuario[campo] });
       this.usuarios.update((lista) => lista.map((u) => (u.id === atualizado.id ? atualizado : u)));
+    } catch (erro) {
+      this.toast.erro(mensagemDeErro(erro));
+    } finally {
+      this.salvando.set(null);
+    }
+  }
+
+  protected abrirRedefinicao(usuario: Usuario) {
+    this.senhaProvisoria.set(gerarSenhaProvisoria());
+    this.redefinindo.set(usuario);
+  }
+
+  protected async copiarSenha() {
+    try {
+      await navigator.clipboard.writeText(this.senhaProvisoria());
+      this.toast.info('Senha provisória copiada.');
+    } catch {
+      this.toast.erro('Não foi possível copiar. Selecione e copie a senha manualmente.');
+    }
+  }
+
+  protected async redefinirSenha(usuario: Usuario) {
+    const senha = this.senhaProvisoria();
+    if (senha.length < 6 || this.salvando()) return;
+    this.salvando.set(usuario.id);
+    try {
+      const atualizado = await this.api.redefinirSenha(usuario.id, senha);
+      this.usuarios.update((lista) => lista.map((u) => (u.id === atualizado.id ? atualizado : u)));
+      this.redefinindo.set(null);
+      this.toast.sucesso(
+        `Senha de ${usuario.nomeCompleto} redefinida. No próximo acesso será pedida uma nova senha.`,
+      );
     } catch (erro) {
       this.toast.erro(mensagemDeErro(erro));
     } finally {

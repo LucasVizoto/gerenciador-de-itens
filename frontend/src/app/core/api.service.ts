@@ -52,6 +52,11 @@ export class ApiService {
     return this.enviar(this.http.patch<Usuario>(`${API}/usuarios/${id}`, dados));
   }
 
+  /** Define uma senha provisória; o usuário cria a nova no próximo acesso. */
+  redefinirSenha(id: string, senha: string) {
+    return this.enviar(this.http.post<Usuario>(`${API}/usuarios/${id}/redefinir-senha`, { senha }));
+  }
+
   removerUsuario(id: string) {
     return this.enviar(this.http.delete<void>(`${API}/usuarios/${id}`));
   }
@@ -145,9 +150,17 @@ export class ApiService {
   }
 }
 
+/** Código estável enviado pela API em alguns erros (ex.: `TROCAR_SENHA`). */
+export function codigoDeErro(erro: unknown): string | null {
+  if (!(erro instanceof HttpErrorResponse)) return null;
+  const corpo = erro.error as { codigo?: unknown } | null;
+  return typeof corpo?.codigo === 'string' ? corpo.codigo : null;
+}
+
 export function mensagemDeErro(erro: unknown): string {
   if (erro instanceof HttpErrorResponse) {
-    if (erro.status === 0) return 'Não foi possível conectar à API. Verifique se o backend está no ar.';
+    if (erro.status === 0)
+      return 'Não foi possível conectar à API. Verifique se o backend está no ar.';
     const corpo = erro.error as { mensagem?: string; erros?: Array<{ mensagem: string }> } | null;
     const detalhe = corpo?.erros?.[0]?.mensagem;
     if (corpo?.mensagem) return detalhe ? `${corpo.mensagem}: ${detalhe}` : corpo.mensagem;

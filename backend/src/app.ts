@@ -6,6 +6,7 @@ import { ZodError, z } from 'zod';
 import { env } from './config/env.js';
 import { Prisma } from './generated/prisma/client.js';
 import { autenticar } from './lib/autenticacao.js';
+import { HttpError } from './lib/http-error.js';
 import { prisma } from './lib/prisma.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
 import { categoriasRoutes } from './modules/categorias/categorias.routes.js';
@@ -38,7 +39,8 @@ function tratarErro(error: unknown, request: FastifyRequest, reply: FastifyReply
 
   const statusCode = (error as { statusCode?: number }).statusCode;
   if (statusCode && statusCode >= 400 && statusCode < 500) {
-    return reply.status(statusCode).send({ mensagem: (error as Error).message });
+    const codigo = error instanceof HttpError ? error.codigo : undefined;
+    return reply.status(statusCode).send({ mensagem: (error as Error).message, ...(codigo ? { codigo } : {}) });
   }
 
   request.log.error(error);

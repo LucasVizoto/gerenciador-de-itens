@@ -113,6 +113,8 @@ model Usuario {
   /// Usuário inativo não consegue entrar nem usar sessões já abertas.
   ativo         Boolean           @default(true)
   administrador Boolean           @default(false)
+  /// Senha provisória definida por um administrador: no próximo acesso o usuário precisa criar uma nova.
+  trocarSenha   Boolean           @default(false) @map("trocar_senha")
   sessoes       Sessao[]
   favoritos     UsuarioFavorito[]
   criadoEm      DateTime          @default(now()) @map("criado_em")

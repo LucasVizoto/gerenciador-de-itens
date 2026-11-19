@@ -102,6 +102,8 @@ export interface Usuario {
   nomeCompleto: string;
   ativo: boolean;
   administrador: boolean;
+  /** Senha provisória pendente: precisa criar uma nova no próximo acesso. */
+  trocarSenha: boolean;
   criadoEm: string;
   atualizadoEm: string;
 }

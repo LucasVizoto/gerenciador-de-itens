@@ -30,7 +30,17 @@ export class AuthService {
   }
 
   async entrar(email: string, senha: string): Promise<Usuario> {
-    const usuario = await firstValueFrom(this.http.post<Usuario>('/api/auth/login', { email, senha }));
+    const usuario = await firstValueFrom(
+      this.http.post<Usuario>('/api/auth/login', { email, senha }),
+    );
+    return this.definir(usuario);
+  }
+
+  /** Troca a senha provisória pela nova e já entra (a API abre a sessão). */
+  async trocarSenha(email: string, senhaAtual: string, novaSenha: string): Promise<Usuario> {
+    const usuario = await firstValueFrom(
+      this.http.post<Usuario>('/api/auth/trocar-senha', { email, senhaAtual, novaSenha }),
+    );
     return this.definir(usuario);
   }
 

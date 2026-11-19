@@ -2,6 +2,7 @@ import { CdkDrag, CdkDropList, CdkDropListGroup, moveItemInArray, type CdkDragDr
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { Router, RouterLink } from '@angular/router';
+import { faClipboardCheck, faFileContract } from '@fortawesome/free-solid-svg-icons';
 import { ApiService, mensagemDeErro } from '../../core/api.service';
 import {
   ORDEM_TIPOS,
@@ -29,6 +30,7 @@ import { ToastService } from '../../core/toast.service';
 import { AutoFoco } from '../../shared/auto-foco';
 import { Icone } from '../../shared/icone';
 import { Modal } from '../../shared/modal';
+import { TituloPagina } from '../../shared/titulo-pagina';
 import { SistemaForm } from '../sistemas/sistema-form';
 import { EtapasPainel, type MovimentoEtapa, type ProgressoEtapa } from './etapas-painel';
 import { ImportarCsv } from './importar-csv';
@@ -88,6 +90,7 @@ const CAMPOS_CSV: Record<string, string> = {
     ItemForm,
     ItemLinha,
     PainelMeta,
+    TituloPagina,
     VoltarTopo,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -131,6 +134,7 @@ export class GerenciamentoPage {
   protected readonly excluindoSelecao = signal(false);
 
   protected readonly formatarData = formatarData;
+  protected readonly icones = { edital: faFileContract, sistema: faClipboardCheck };
   protected readonly camposCsv = CAMPOS_CSV;
 
   /** Garante que cliques rápidos no mesmo item cheguem à API na ordem em que foram feitos. */

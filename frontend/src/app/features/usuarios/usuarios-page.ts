@@ -1,9 +1,18 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
+import { faUserGear, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { ApiService, mensagemDeErro } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import type { Usuario } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
 import { Icone } from '../../shared/icone';
+import { TituloPagina } from '../../shared/titulo-pagina';
 
 type CampoChave = 'ativo' | 'administrador';
 
@@ -12,13 +21,17 @@ const formatoCadastro = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month
 /** Gestão de usuários (somente administradores): ativar, promover e excluir. */
 @Component({
   selector: 'app-usuarios-page',
-  imports: [Icone],
+  imports: [Icone, TituloPagina],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="border-b border-line bg-linear-to-br from-brand-800 via-brand-900 to-brand-950">
       <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-        <p class="eyebrow">Administração</p>
-        <h1 class="mt-3 text-3xl font-bold tracking-tight text-white">Usuários</h1>
+        <app-titulo-pagina
+          sobrelinha="Administração"
+          [iconeSobrelinha]="icones.administracao"
+          [icone]="icones.usuarios"
+          >Usuários</app-titulo-pagina
+        >
         <p class="mt-2 max-w-2xl leading-relaxed text-brand-200/90">
           Novos cadastros chegam <strong class="font-semibold text-white">inativos</strong> e só conseguem entrar depois que um
           administrador liga a chave Ativo. Usuários inativos não acessam o sistema.
@@ -112,6 +125,7 @@ const formatoCadastro = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month
   `,
 })
 export class UsuariosPage implements OnInit {
+  protected readonly icones = { administracao: faUserGear, usuarios: faUsers };
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
   protected readonly auth = inject(AuthService);

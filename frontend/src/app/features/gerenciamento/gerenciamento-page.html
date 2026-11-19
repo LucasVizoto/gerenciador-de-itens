@@ -27,10 +27,9 @@
       </a>
       <div class="mt-4 flex flex-wrap items-start justify-between gap-6">
         <div class="min-w-0">
-          <p class="eyebrow">Itens do edital{{ e.numero ? ' · ' + e.numero : '' }}</p>
-          <h1 class="mt-2 text-3xl font-bold tracking-tight text-white">
+          <app-titulo-pagina [sobrelinha]="'Itens do edital' + (e.numero ? ' · ' + e.numero : '')" [iconeSobrelinha]="icones.edital" [icone]="icones.sistema">
             {{ e.nome }}{{ e.versao ? ' · v' + e.versao : '' }}
-          </h1>
+          </app-titulo-pagina>
           <p class="mt-2 leading-relaxed text-brand-200/90">
             Marque cada requisito e acompanhe a meta de {{ e.metaPercentual }}% durante a apresentação.
           </p>

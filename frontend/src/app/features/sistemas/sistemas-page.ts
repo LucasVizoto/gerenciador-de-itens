@@ -1,17 +1,19 @@
 import { ChangeDetectionStrategy, Component, OnInit, booleanAttribute, inject, input, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { faHeart, faLayerGroup, faShieldHalved } from '@fortawesome/free-solid-svg-icons';
 import { ApiService, mensagemDeErro } from '../../core/api.service';
 import { formatarData, formatarPercentual } from '../../core/dominio';
 import type { DadosSistema, SistemaComResumo } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
 import { Icone } from '../../shared/icone';
 import { Modal } from '../../shared/modal';
+import { TituloPagina } from '../../shared/titulo-pagina';
 import { VoltarTopo } from '../../shared/voltar-topo';
 import { SistemaForm } from './sistema-form';
 
 @Component({
   selector: 'app-sistemas-page',
-  imports: [RouterLink, Icone, Modal, SistemaForm, VoltarTopo],
+  imports: [RouterLink, Icone, Modal, SistemaForm, TituloPagina, VoltarTopo],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './sistemas-page.html',
 })
@@ -28,6 +30,7 @@ export class SistemasPage implements OnInit {
   protected readonly criando = signal(false);
   protected readonly salvando = signal(false);
 
+  protected readonly icones = { conformidade: faShieldHalved, sistemas: faLayerGroup, favoritos: faHeart };
   protected readonly formatarPercentual = formatarPercentual;
   protected readonly formatarData = formatarData;
 

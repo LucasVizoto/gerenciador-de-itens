@@ -1,14 +1,13 @@
 <header #cabecalho class="border-b border-line bg-linear-to-br from-brand-800 via-brand-900 to-brand-950">
   <div class="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-6 px-4 py-10 sm:px-6">
     <div>
-      <p class="eyebrow">Painel de conformidade</p>
       @if (somenteFavoritos()) {
-        <h1 class="mt-3 text-3xl font-bold tracking-tight text-white">Favoritos</h1>
+        <app-titulo-pagina sobrelinha="Painel de conformidade" [iconeSobrelinha]="icones.conformidade" [icone]="icones.favoritos">Favoritos</app-titulo-pagina>
         <p class="mt-2 max-w-2xl leading-relaxed text-brand-200/90">
           Os sistemas que você marcou com o coração. Clique no coração de novo para tirá-lo desta lista.
         </p>
       } @else {
-        <h1 class="mt-3 text-3xl font-bold tracking-tight text-white">Sistemas</h1>
+        <app-titulo-pagina sobrelinha="Painel de conformidade" [iconeSobrelinha]="icones.conformidade" [icone]="icones.sistemas">Sistemas</app-titulo-pagina>
         <p class="mt-2 max-w-2xl leading-relaxed text-brand-200/90">
           Cada sistema reúne os itens do edital em que ele é apresentado. Clique no sistema para importar a planilha e marcar o atendimento.
         </p>

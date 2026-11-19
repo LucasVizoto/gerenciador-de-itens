@@ -3,7 +3,7 @@ import { TemaService } from '../../core/tema.service';
 import { Icone } from '../../shared/icone';
 
 /**
- * Tela cheia do login/cadastro: gradiente azul claro com manchas desfocadas e o formulário
+ * Tela cheia do login/cadastro: gradiente azul (claro, ou noturno no tema escuro) com manchas desfocadas e o formulário
  * direto sobre o fundo (campos sublinhados e botões em pílula, ver `.campo-auth` e `.btn-pilula`).
  */
 @Component({
@@ -12,12 +12,12 @@ import { Icone } from '../../shared/icone';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div
-      class="relative isolate flex min-h-dvh flex-col overflow-hidden bg-linear-to-br from-sky-400 via-blue-500 to-brand-500 dark:from-brand-700 dark:via-brand-800 dark:to-brand-900"
+      class="relative isolate flex min-h-dvh flex-col overflow-hidden bg-linear-to-br from-sky-400 via-blue-500 to-brand-500 dark:from-sky-800 dark:via-blue-900 dark:to-brand-950"
     >
       <div class="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
-        <div class="absolute -top-40 -left-32 size-[32rem] rounded-full bg-white/30 blur-3xl dark:bg-sky-400/15"></div>
-        <div class="absolute top-1/4 -right-40 size-[28rem] rounded-full bg-sky-200/35 blur-3xl dark:bg-brand-400/20"></div>
-        <div class="absolute -bottom-48 left-1/5 size-[34rem] rounded-full bg-indigo-400/30 blur-3xl dark:bg-indigo-500/20"></div>
+        <div class="absolute -top-40 -left-32 size-[32rem] rounded-full bg-white/30 blur-3xl dark:bg-sky-400/30"></div>
+        <div class="absolute top-1/4 -right-40 size-[28rem] rounded-full bg-sky-200/35 blur-3xl dark:bg-blue-500/25"></div>
+        <div class="absolute -bottom-48 left-1/5 size-[34rem] rounded-full bg-indigo-400/30 blur-3xl dark:bg-indigo-500/35"></div>
       </div>
 
       <button

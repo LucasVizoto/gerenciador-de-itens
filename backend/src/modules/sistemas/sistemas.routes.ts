@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { usuarioDa } from '../../lib/autenticacao.js';
 import { origemDa, publicar } from '../../lib/eventos.js';
 import { HttpError } from '../../lib/http-error.js';
@@ -14,6 +15,7 @@ const corpoSistema = z.object({
   descricao: textoOpcional(2000),
   numero: textoOpcional(100),
   orgao: textoOpcional(200),
+  cidade: textoOpcional(120),
   objeto: textoOpcional(5_000),
   dataApresentacao: z.iso
     .date('Data inválida (use AAAA-MM-DD)')
@@ -21,7 +23,40 @@ const corpoSistema = z.object({
     .nullable()
     .optional(),
   metaPercentual: z.number().int().min(1).max(100).default(85),
+  /**
+   * Lista completa de responsáveis, na ordem de exibição. Itens com `id` são mantidos (e renomeados),
+   * os sem `id` são criados e os que não vierem são removidos. Ausente = não altera.
+   */
+  responsaveis: z
+    .array(
+      z.object({
+        id: z.uuid('Identificador de responsável inválido').optional(),
+        nome: z.string().trim().min(1, 'Informe o nome do responsável').max(200),
+      }),
+    )
+    .max(50, 'Cadastre no máximo 50 responsáveis')
+    .optional(),
 });
+
+type DadosResponsavel = { id?: string; nome: string };
+
+const responsaveisOrdenados = {
+  responsaveis: { orderBy: [{ ordem: 'asc' as const }, { criadoEm: 'asc' as const }] },
+};
+
+/** Substitui os responsáveis do sistema pela lista recebida (mesma transação da gravação do sistema). */
+async function sincronizarResponsaveis(tx: Prisma.TransactionClient, sistemaId: string, lista: DadosResponsavel[]) {
+  const manter = lista.flatMap((r) => (r.id ? [r.id] : []));
+  await tx.responsavel.deleteMany({ where: { sistemaId, id: { notIn: manter } } });
+  for (const [ordem, { id, nome }] of lista.entries()) {
+    if (id) {
+      const { count } = await tx.responsavel.updateMany({ where: { id, sistemaId }, data: { nome, ordem } });
+      if (!count) throw new HttpError(400, `Responsável "${nome}" não pertence a este sistema`);
+    } else {
+      await tx.responsavel.create({ data: { sistemaId, nome, ordem } });
+    }
+  }
+}
 
 const filtroLista = z.object({
   favoritos: z
@@ -80,8 +115,11 @@ export async function sistemasRoutes(app: FastifyInstance) {
   });
 
   app.post('/sistemas', async (request, reply) => {
-    const dados = corpoSistema.parse(request.body);
-    const sistema = await prisma.sistema.create({ data: dados });
+    const { responsaveis, ...dados } = corpoSistema.parse(request.body);
+    const sistema = await prisma.sistema.create({
+      data: { ...dados, responsaveis: { create: (responsaveis ?? []).map(({ nome }, ordem) => ({ nome, ordem })) } },
+      include: responsaveisOrdenados,
+    });
     return reply.status(201).send(sistema);
   });
 
@@ -91,6 +129,7 @@ export async function sistemasRoutes(app: FastifyInstance) {
     const sistema = await prisma.sistema.findUnique({
       where: { id },
       include: {
+        ...responsaveisOrdenados,
         categorias: { orderBy: { ordem: 'asc' } },
         itens: { orderBy: [{ ordem: 'asc' }, { criadoEm: 'asc' }] },
       },
@@ -101,8 +140,12 @@ export async function sistemasRoutes(app: FastifyInstance) {
 
   app.put('/sistemas/:id', async (request) => {
     const { id } = parametroId.parse(request.params);
-    const dados = corpoSistema.parse(request.body);
-    const sistema = await prisma.sistema.update({ where: { id }, data: dados });
+    const { responsaveis, ...dados } = corpoSistema.parse(request.body);
+    const sistema = await prisma.$transaction(async (tx) => {
+      await tx.sistema.update({ where: { id }, data: dados });
+      if (responsaveis) await sincronizarResponsaveis(tx, id, responsaveis);
+      return tx.sistema.findUniqueOrThrow({ where: { id }, include: responsaveisOrdenados });
+    });
     publicar(id, { tipo: 'sistema.atualizado', dados: sistema, origem: origemDa(request) });
     return sistema;
   });

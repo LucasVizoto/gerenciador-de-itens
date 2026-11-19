@@ -35,6 +35,8 @@ model Sistema {
   /// Número do edital em que este sistema é apresentado.
   numero           String?
   orgao            String?
+  /// Cidade que aparece no local/data da assinatura do relatório.
+  cidade           String?
   objeto           String?
   dataApresentacao DateTime?         @map("data_apresentacao") @db.Date
   /// Percentual mínimo de itens essenciais atendidos.
@@ -42,10 +44,25 @@ model Sistema {
   categorias       Categoria[]
   itens            Item[]
   favoritos        UsuarioFavorito[]
+  responsaveis     Responsavel[]
   criadoEm         DateTime          @default(now()) @map("criado_em")
   atualizadoEm     DateTime          @updatedAt @map("atualizado_em")
 
   @@map("sistemas")
+}
+
+/// Responsável que assina o relatório de conformidade do sistema (um PDF por responsável).
+model Responsavel {
+  id           String   @id @default(uuid()) @db.Uuid
+  sistemaId    String   @map("sistema_id") @db.Uuid
+  sistema      Sistema  @relation(fields: [sistemaId], references: [id], onDelete: Cascade)
+  nome         String
+  ordem        Int      @default(0)
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  @@index([sistemaId, ordem])
+  @@map("responsaveis")
 }
 
 /// Etapa/processo da apresentação (ex.: "Cadastros básicos", "Abastecimento").

@@ -22,8 +22,10 @@ import type {
   EventoEdital,
   Item,
   PosicaoItem,
+  Responsavel,
   ResultadoImportacao,
   Sistema,
+  SistemaComResponsaveis,
   StatusItem,
   TipoItem,
 } from '../../core/models';
@@ -110,6 +112,7 @@ export class GerenciamentoPage {
   readonly id = input.required<string>();
 
   protected readonly sistema = signal<Sistema | null>(null);
+  protected readonly responsaveis = signal<Responsavel[]>([]);
   protected readonly categorias = signal<Categoria[]>([]);
   protected readonly itens = signal<Item[]>([]);
   protected readonly carregando = signal(true);
@@ -308,8 +311,9 @@ export class GerenciamentoPage {
       this.erroCarga.set(null);
     }
     try {
-      const { categorias, itens, ...sistema } = await this.api.obterSistema(id);
+      const { categorias, itens, responsaveis, ...sistema } = await this.api.obterSistema(id);
       this.sistema.set(sistema);
+      this.responsaveis.set(responsaveis);
       this.categorias.set(categorias);
       this.itens.set(itens);
       this.title.setTitle(`${sistema.nome} · Conformidade de Editais`);
@@ -667,7 +671,7 @@ export class GerenciamentoPage {
   protected async salvarSistema(dados: DadosSistema) {
     this.salvandoSistema.set(true);
     try {
-      this.sistema.set(await this.api.atualizarSistema(this.id(), dados));
+      this.definirSistema(await this.api.atualizarSistema(this.id(), dados));
       this.editandoSistema.set(false);
       this.toast.sucesso('Sistema atualizado.');
     } catch (erro) {
@@ -735,7 +739,7 @@ export class GerenciamentoPage {
         this.aplicarPosicoes(evento.dados as PosicaoItem[]);
         break;
       case 'sistema.atualizado':
-        this.sistema.set(evento.dados as Sistema);
+        this.definirSistema(evento.dados as SistemaComResponsaveis);
         break;
       case 'sistema.removido':
         this.toast.info('Este sistema foi excluído em outra sessão.');
@@ -747,6 +751,11 @@ export class GerenciamentoPage {
   }
 
   // ----- Auxiliares de estado -----
+
+  private definirSistema({ responsaveis, ...sistema }: SistemaComResponsaveis) {
+    this.sistema.set(sistema);
+    this.responsaveis.set(responsaveis);
+  }
 
   private enfileirar<T>(itemId: string, tarefa: () => Promise<T>): Promise<T> {
     const proxima = (this.filaPorItem.get(itemId) ?? Promise.resolve()).catch(() => undefined).then(tarefa);

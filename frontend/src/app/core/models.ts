@@ -10,11 +10,25 @@ export interface Sistema {
   descricao: string | null;
   numero: string | null;
   orgao: string | null;
+  /** Cidade do local/data da assinatura do relatório. */
+  cidade: string | null;
   objeto: string | null;
   dataApresentacao: string | null;
   metaPercentual: number;
   criadoEm: string;
   atualizadoEm: string;
+}
+
+/** Responsável que assina o relatório do sistema (cada um recebe um PDF próprio). */
+export interface Responsavel {
+  id: string;
+  sistemaId: string;
+  nome: string;
+  ordem: number;
+}
+
+export interface SistemaComResponsaveis extends Sistema {
+  responsaveis: Responsavel[];
 }
 
 export interface Categoria {
@@ -98,7 +112,7 @@ export interface DadosCadastro {
   senha: string;
 }
 
-export interface SistemaDetalhe extends Sistema {
+export interface SistemaDetalhe extends SistemaComResponsaveis {
   categorias: Categoria[];
   itens: Item[];
 }
@@ -109,10 +123,18 @@ export interface DadosSistema {
   descricao: string | null;
   numero: string | null;
   orgao: string | null;
+  cidade: string | null;
   objeto: string | null;
   /** AAAA-MM-DD */
   dataApresentacao: string | null;
   metaPercentual: number;
+  /** Lista completa, na ordem: com `id` mantém/renomeia, sem `id` cria; os ausentes são removidos. */
+  responsaveis: DadosResponsavel[];
+}
+
+export interface DadosResponsavel {
+  id?: string;
+  nome: string;
 }
 
 export interface DadosItem {

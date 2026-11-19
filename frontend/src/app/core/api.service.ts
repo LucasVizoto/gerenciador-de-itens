@@ -8,7 +8,7 @@ import type {
   Item,
   PosicaoItem,
   ResultadoImportacao,
-  Sistema,
+  SistemaComResponsaveis,
   SistemaComResumo,
   SistemaDashboard,
   SistemaDetalhe,
@@ -61,11 +61,11 @@ export class ApiService {
   }
 
   criarSistema(dados: DadosSistema) {
-    return this.enviar(this.http.post<Sistema>(`${API}/sistemas`, dados));
+    return this.enviar(this.http.post<SistemaComResponsaveis>(`${API}/sistemas`, dados));
   }
 
   atualizarSistema(id: string, dados: DadosSistema) {
-    return this.enviar(this.http.put<Sistema>(`${API}/sistemas/${id}`, dados));
+    return this.enviar(this.http.put<SistemaComResponsaveis>(`${API}/sistemas/${id}`, dados));
   }
 
   removerSistema(id: string) {

@@ -397,7 +397,7 @@
 
   <app-modal titulo="Editar sistema" [aberto]="editandoSistema()" (fechado)="editandoSistema.set(false)">
     @if (editandoSistema()) {
-      <app-sistema-form [sistema]="e" [salvando]="salvandoSistema()" (salvar)="salvarSistema($event)" (cancelar)="editandoSistema.set(false)" />
+      <app-sistema-form [sistema]="e" [responsaveis]="responsaveis()" [salvando]="salvandoSistema()" (salvar)="salvarSistema($event)" (cancelar)="editandoSistema.set(false)" />
     }
   </app-modal>
 

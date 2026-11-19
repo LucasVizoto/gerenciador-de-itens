@@ -9,6 +9,7 @@ import { autenticar } from './lib/autenticacao.js';
 import { prisma } from './lib/prisma.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
 import { categoriasRoutes } from './modules/categorias/categorias.routes.js';
+import { dashboardRoutes } from './modules/dashboard/dashboard.routes.js';
 import { eventosRoutes } from './modules/eventos/eventos.routes.js';
 import { itensRoutes } from './modules/itens/itens.routes.js';
 import { sistemasRoutes } from './modules/sistemas/sistemas.routes.js';
@@ -79,6 +80,7 @@ export async function buildApp() {
       await api.register(authRoutes);
       await api.register(usuariosRoutes);
       await api.register(sistemasRoutes);
+      await api.register(dashboardRoutes);
       await api.register(categoriasRoutes);
       await api.register(itensRoutes);
       await api.register(eventosRoutes);

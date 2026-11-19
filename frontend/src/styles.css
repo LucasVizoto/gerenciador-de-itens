@@ -42,6 +42,11 @@
   --color-brand-800: #1e3a8a;
   --color-brand-900: #172d6b;
   --color-brand-950: #0b1f4d;
+
+  /* Status da avaliação nos gráficos (validados para daltonismo; espelhados em features/dashboard/cores.ts). */
+  --color-atende: #16a34a;
+  --color-nao-atende: #be123c;
+  --color-pendente: #c2cfe1;
 }
 
 @layer base {
@@ -63,6 +68,10 @@
       --color-ink-soft: #c2cee4;
       --color-muted: #8696b8;
       --color-faint: #5d6d91;
+
+      --color-atende: #12a874;
+      --color-nao-atende: #c41a42;
+      --color-pendente: #2a3f6a;
     }
   }
 

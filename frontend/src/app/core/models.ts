@@ -57,6 +57,31 @@ export interface SistemaComResumo extends Sistema {
   favorito: boolean;
 }
 
+/** Quantidade de itens de um tipo com um status. */
+export interface ContagemItens {
+  tipo: TipoItem;
+  status: StatusItem;
+  quantidade: number;
+}
+
+export interface EtapaDashboard {
+  /** `null` = itens sem etapa. */
+  id: string | null;
+  nome: string;
+  contagens: ContagemItens[];
+}
+
+export interface SistemaDashboard
+  extends Pick<
+    Sistema,
+    'id' | 'nome' | 'versao' | 'numero' | 'orgao' | 'dataApresentacao' | 'metaPercentual' | 'criadoEm' | 'atualizadoEm'
+  > {
+  favorito: boolean;
+  resumo: Resumo;
+  contagens: ContagemItens[];
+  etapas: EtapaDashboard[];
+}
+
 export interface Usuario {
   id: string;
   email: string;

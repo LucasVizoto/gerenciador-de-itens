@@ -25,6 +25,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/sistemas/sistemas-page').then((m) => m.SistemasPage),
       },
       {
+        path: 'dashboard',
+        title: 'Dashboard · Conformidade de Editais',
+        loadComponent: () => import('./features/dashboard/dashboard-page').then((m) => m.DashboardPage),
+      },
+      {
         path: 'favoritos',
         title: 'Favoritos · Conformidade de Editais',
         data: { somenteFavoritos: true },

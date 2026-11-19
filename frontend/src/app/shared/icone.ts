@@ -28,7 +28,9 @@ export type NomeIcone =
   | 'email'
   | 'cadeado'
   | 'seta-cima'
-  | 'relogio';
+  | 'relogio'
+  | 'grafico'
+  | 'filtro';
 
 /** Ícones de traço no estilo Lucide, embutidos para não depender de pacote externo. */
 @Component({
@@ -180,6 +182,15 @@ export type NomeIcone =
         @case ('seta-cima') {
           <path d="m5 12 7-7 7 7" />
           <path d="M12 19V5" />
+        }
+        @case ('grafico') {
+          <path d="M3 3v16a2 2 0 0 0 2 2h16" />
+          <path d="M18 17V9" />
+          <path d="M13 17V5" />
+          <path d="M8 17v-3" />
+        }
+        @case ('filtro') {
+          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
         }
         @case ('sair') {
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />

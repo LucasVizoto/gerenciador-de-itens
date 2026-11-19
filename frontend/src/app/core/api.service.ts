@@ -10,6 +10,7 @@ import type {
   ResultadoImportacao,
   Sistema,
   SistemaComResumo,
+  SistemaDashboard,
   SistemaDetalhe,
   Usuario,
 } from './models';
@@ -28,6 +29,10 @@ export class ApiService {
   listarSistemas(somenteFavoritos = false) {
     const params = somenteFavoritos ? { favoritos: 'true' } : undefined;
     return this.enviar(this.http.get<SistemaComResumo[]>(`${API}/sistemas`, { params }));
+  }
+
+  obterDashboard() {
+    return this.enviar(this.http.get<SistemaDashboard[]>(`${API}/dashboard`));
   }
 
   favoritar(sistemaId: string) {

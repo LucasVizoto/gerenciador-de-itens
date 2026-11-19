@@ -15,6 +15,10 @@ export const TIPOS: Record<TipoItem, { rotulo: string; prefixo: string }> = {
 
 export const ORDEM_TIPOS: TipoItem[] = ['OBRIGATORIO', 'ESSENCIAL', 'COMPLEMENTAR', 'DISPENSADO'];
 
+/** Rótulo curto do item como aparece na lista ("OBR. 3.1", "ITEM 12"). */
+export const rotuloItem = (tipo: TipoItem, numero: string | null) =>
+  numero ? `${TIPOS[tipo].prefixo} ${numero}` : TIPOS[tipo].prefixo;
+
 /** Ordenação natural da numeração do edital ("2" < "10", "3.1.2" < "3.1.10"). */
 export function compararNumero(a: string | null, b: string | null): number {
   if (a === b) return 0;
@@ -24,7 +28,10 @@ export function compararNumero(a: string | null, b: string | null): number {
 }
 
 export function normalizarBusca(texto: string): string {
-  return texto.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+  return texto
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase();
 }
 
 /**
@@ -56,12 +63,23 @@ export function calcularResumo(itens: Item[], metaPercentual: number): Resumo {
       atendidos: obrigatoriosAtendidos,
       percentual: obrigatorios ? (obrigatoriosAtendidos / obrigatorios) * 100 : 100,
     },
-    metaAtingida: essenciais + obrigatorios > 0 && atendidos >= minimo && obrigatoriosAtendidos === obrigatorios,
+    metaAtingida:
+      essenciais + obrigatorios > 0 &&
+      atendidos >= minimo &&
+      obrigatoriosAtendidos === obrigatorios,
   };
 }
 
-const formatoPercentual = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const formatoData = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' });
+const formatoPercentual = new Intl.NumberFormat('pt-BR', {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
+const formatoData = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: 'UTC',
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+});
 
 export const formatarPercentual = (valor: number) => `${formatoPercentual.format(valor)}%`;
 export const plural = (quantidade: number, singular: string, plural: string) =>

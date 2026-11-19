@@ -1,6 +1,6 @@
 import { CdkDragHandle } from '@angular/cdk/drag-drop';
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
-import { STATUS, TIPOS } from '../../core/dominio';
+import { STATUS, TIPOS, rotuloItem } from '../../core/dominio';
 import type { Item, StatusItem, TipoItem } from '../../core/models';
 import { AutoFoco } from '../../shared/auto-foco';
 import { Icone } from '../../shared/icone';
@@ -80,7 +80,9 @@ const SELO: Partial<Record<TipoItem, string>> = {
                 [attr.max]="totalGrupo() || null"
                 class="w-14 rounded border border-brand-500 bg-surface px-1 py-0.5 text-[11px] font-semibold text-ink tabular-nums focus:ring-2 focus:ring-brand-500/25 focus:outline-none"
                 [value]="p"
-                [attr.aria-label]="'Nova posição de ' + rotulo() + ' no grupo (1 a ' + totalGrupo() + ')'"
+                [attr.aria-label]="
+                  'Nova posição de ' + rotulo() + ' no grupo (1 a ' + totalGrupo() + ')'
+                "
                 (keydown.enter)="$event.preventDefault(); confirmarPosicao(campo.value)"
                 (keydown.escape)="$event.preventDefault(); editandoPosicao.set(false)"
                 (blur)="confirmarPosicao(campo.value)"
@@ -90,7 +92,14 @@ const SELO: Partial<Record<TipoItem, string>> = {
                 type="button"
                 class="min-w-6 rounded border border-line-strong bg-surface-2 px-1.5 py-0.5 text-[11px] font-semibold text-muted tabular-nums transition-colors hover:border-brand-500 hover:text-ink print:hidden"
                 [title]="'Posição ' + p + ' no grupo · clique para digitar outra'"
-                [attr.aria-label]="'Posição ' + p + ' de ' + totalGrupo() + ' no grupo. Alterar posição de ' + rotulo()"
+                [attr.aria-label]="
+                  'Posição ' +
+                  p +
+                  ' de ' +
+                  totalGrupo() +
+                  ' no grupo. Alterar posição de ' +
+                  rotulo()
+                "
                 (click)="editandoPosicao.set(true)"
               >
                 {{ p }}º
@@ -181,13 +190,14 @@ export class ItemLinha {
   protected readonly tipos = TIPOS;
   protected readonly selo = computed(() => SELO[this.item().tipo] ?? null);
   protected readonly classes = computed(() => {
-    const fundo = this.destaque() ? 'bg-brand-500/10' : this.selecionado() ? 'bg-brand-500/5' : 'bg-surface';
+    const fundo = this.destaque()
+      ? 'bg-brand-500/10'
+      : this.selecionado()
+        ? 'bg-brand-500/5'
+        : 'bg-surface';
     return `${BORDA[this.item().status]} ${fundo}`;
   });
-  protected readonly rotulo = computed(() => {
-    const { tipo, numero } = this.item();
-    return numero ? `${TIPOS[tipo].prefixo} ${numero}` : TIPOS[tipo].prefixo;
-  });
+  protected readonly rotulo = computed(() => rotuloItem(this.item().tipo, this.item().numero));
 
   protected confirmarPosicao(valor: string) {
     // Esc e Enter já saíram do modo de edição; o blur que vem em seguida não deve confirmar de novo.

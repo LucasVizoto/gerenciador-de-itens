@@ -73,7 +73,9 @@ export class ApiService {
   }
 
   reiniciarAvaliacao(sistemaId: string) {
-    return this.enviar(this.http.post<{ reiniciados: number }>(`${API}/sistemas/${sistemaId}/reiniciar`, {}));
+    return this.enviar(
+      this.http.post<{ reiniciados: number }>(`${API}/sistemas/${sistemaId}/reiniciar`, {}),
+    );
   }
 
   urlExportacao(sistemaId: string) {
@@ -81,7 +83,9 @@ export class ApiService {
   }
 
   criarCategoria(sistemaId: string, nome: string) {
-    return this.enviar(this.http.post<Categoria>(`${API}/sistemas/${sistemaId}/categorias`, { nome }));
+    return this.enviar(
+      this.http.post<Categoria>(`${API}/sistemas/${sistemaId}/categorias`, { nome }),
+    );
   }
 
   renomearCategoria(id: string, nome: string) {
@@ -93,7 +97,9 @@ export class ApiService {
   }
 
   reordenarCategorias(sistemaId: string, ids: string[]) {
-    return this.enviar(this.http.put<Categoria[]>(`${API}/sistemas/${sistemaId}/categorias/ordem`, { ids }));
+    return this.enviar(
+      this.http.put<Categoria[]>(`${API}/sistemas/${sistemaId}/categorias/ordem`, { ids }),
+    );
   }
 
   criarItem(sistemaId: string, dados: DadosItem) {
@@ -122,14 +128,19 @@ export class ApiService {
   }
 
   reordenarItens(sistemaId: string, itens: PosicaoItem[]) {
-    return this.enviar(this.http.put<{ atualizados: number }>(`${API}/sistemas/${sistemaId}/itens/ordem`, { itens }));
+    return this.enviar(
+      this.http.put<{ atualizados: number }>(`${API}/sistemas/${sistemaId}/itens/ordem`, { itens }),
+    );
   }
 
   importarCsv(sistemaId: string, arquivo: File) {
     const formulario = new FormData();
     formulario.append('arquivo', arquivo, arquivo.name);
     return this.enviar(
-      this.http.post<ResultadoImportacao>(`${API}/sistemas/${sistemaId}/itens/importar`, formulario),
+      this.http.post<ResultadoImportacao>(
+        `${API}/sistemas/${sistemaId}/itens/importar`,
+        formulario,
+      ),
     );
   }
 }

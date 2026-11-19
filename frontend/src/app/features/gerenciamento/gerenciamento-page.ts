@@ -1,10 +1,29 @@
-import { CdkDrag, CdkDropList, CdkDropListGroup, moveItemInArray, type CdkDragDrop } from '@angular/cdk/drag-drop';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import {
+  CdkDrag,
+  CdkDropList,
+  CdkDropListGroup,
+  moveItemInArray,
+  type CdkDragDrop,
+} from '@angular/cdk/drag-drop';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  input,
+  signal,
+  untracked,
+} from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { Router, RouterLink } from '@angular/router';
+import { FaIconComponent } from '@fortawesome/angular-fontawesome';
+import { faCheck, faClipboardCheck, faFileContract, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { ApiService, mensagemDeErro } from '../../core/api.service';
+import { ConfirmacaoService } from '../../core/confirmacao.service';
 import {
   ORDEM_TIPOS,
+  STATUS,
   calcularResumo,
   compararNumero,
   formatarData,
@@ -19,8 +38,10 @@ import type {
   EventoEdital,
   Item,
   PosicaoItem,
+  Responsavel,
   ResultadoImportacao,
   Sistema,
+  SistemaComResponsaveis,
   StatusItem,
   TipoItem,
 } from '../../core/models';
@@ -29,12 +50,15 @@ import { ToastService } from '../../core/toast.service';
 import { AutoFoco } from '../../shared/auto-foco';
 import { Icone } from '../../shared/icone';
 import { Modal } from '../../shared/modal';
+import { TituloPagina } from '../../shared/titulo-pagina';
 import { SistemaForm } from '../sistemas/sistema-form';
 import { EtapasPainel, type MovimentoEtapa, type ProgressoEtapa } from './etapas-painel';
 import { ImportarCsv } from './importar-csv';
 import { ItemForm } from './item-form';
 import { ItemLinha } from './item-linha';
+import { VoltarTopo } from '../../shared/voltar-topo';
 import { PainelMeta, situacaoDaMeta } from './painel-meta';
+import { gerarRelatorioPdf } from './relatorio-pdf';
 
 type ModoOrdem = 'etapas' | 'numerica';
 type Filtro = 'TODOS' | StatusItem;
@@ -54,6 +78,8 @@ interface Grupo {
 
 const SEM_ETAPA = 'sem-etapa';
 const DURACAO_DESTAQUE_MS = 1600;
+/** Tempo até liberar a URL do PDF gerado (a aba já terá carregado o arquivo). */
+const VALIDADE_URL_RELATORIO_MS = 60_000;
 
 const TITULO_TIPO: Record<TipoItem, (n: number) => string> = {
   OBRIGATORIO: (n) => `${n} requisitos obrigatórios`,
@@ -87,6 +113,9 @@ const CAMPOS_CSV: Record<string, string> = {
     ItemForm,
     ItemLinha,
     PainelMeta,
+    TituloPagina,
+    FaIconComponent,
+    VoltarTopo,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './gerenciamento-page.html',
@@ -95,6 +124,7 @@ export class GerenciamentoPage {
   private readonly api = inject(ApiService);
   private readonly realtime = inject(RealtimeService);
   private readonly toast = inject(ToastService);
+  private readonly confirmacao = inject(ConfirmacaoService);
   private readonly router = inject(Router);
   private readonly title = inject(Title);
 
@@ -102,6 +132,7 @@ export class GerenciamentoPage {
   readonly id = input.required<string>();
 
   protected readonly sistema = signal<Sistema | null>(null);
+  protected readonly responsaveis = signal<Responsavel[]>([]);
   protected readonly categorias = signal<Categoria[]>([]);
   protected readonly itens = signal<Item[]>([]);
   protected readonly carregando = signal(true);
@@ -126,8 +157,18 @@ export class GerenciamentoPage {
   /** Nome digitado na barra de seleção para criar um grupo novo; `null` = campo fechado. */
   protected readonly nomeNovoGrupo = signal<string | null>(null);
   protected readonly movendoSelecao = signal(false);
+  protected readonly excluindoSelecao = signal(false);
+  protected readonly gerandoRelatorio = signal(false);
 
   protected readonly formatarData = formatarData;
+  protected readonly icones = {
+    edital: faFileContract,
+    sistema: faClipboardCheck,
+    atende: faCheck,
+    naoAtende: faXmark,
+  };
+  /** Grupo cuja marcação em lote está sendo gravada. */
+  protected readonly marcandoGrupo = signal<string | null>(null);
   protected readonly camposCsv = CAMPOS_CSV;
 
   /** Garante que cliques rápidos no mesmo item cheguem à API na ordem em que foram feitos. */
@@ -137,11 +178,15 @@ export class GerenciamentoPage {
   protected readonly meta = computed(() => this.sistema()?.metaPercentual ?? 85);
   protected readonly resumo = computed(() => calcularResumo(this.itens(), this.meta()));
   protected readonly situacao = computed(() => situacaoDaMeta(this.resumo(), this.meta()));
-  protected readonly filtrando = computed(() => this.filtro() !== 'TODOS' || this.busca().trim() !== '');
+  protected readonly filtrando = computed(
+    () => this.filtro() !== 'TODOS' || this.busca().trim() !== '',
+  );
   protected readonly podeArrastar = computed(() => this.modo() === 'etapas' && !this.filtrando());
   protected readonly podeSelecionar = computed(() => this.modo() === 'etapas');
   protected readonly urlExportacao = computed(() => this.api.urlExportacao(this.id()));
-  protected readonly colunasImportadas = computed(() => Object.entries(this.ultimaImportacao()?.colunas ?? {}));
+  protected readonly colunasImportadas = computed(() =>
+    Object.entries(this.ultimaImportacao()?.colunas ?? {}),
+  );
 
   protected readonly progressoEtapas = computed(() => {
     const progresso = new Map<string, ProgressoEtapa>();
@@ -160,8 +205,17 @@ export class GerenciamentoPage {
     const termo = normalizarBusca(this.busca().trim());
     const visivel = (item: Item) =>
       (filtro === 'TODOS' || item.status === filtro) &&
-      (!termo || normalizarBusca(`${item.numero ?? ''} ${item.descricao} ${item.observacao ?? ''}`).includes(termo));
-    const montar = (id: string, categoriaId: string | null, numero: number | null, titulo: string, todos: Item[]): Grupo => ({
+      (!termo ||
+        normalizarBusca(`${item.numero ?? ''} ${item.descricao} ${item.observacao ?? ''}`).includes(
+          termo,
+        ));
+    const montar = (
+      id: string,
+      categoriaId: string | null,
+      numero: number | null,
+      titulo: string,
+      todos: Item[],
+    ): Grupo => ({
       id,
       categoriaId,
       numero,
@@ -174,7 +228,9 @@ export class GerenciamentoPage {
     let grupos: Grupo[];
     if (this.modo() === 'etapas') {
       const listas = this.listasPorEtapa();
-      grupos = this.categorias().map((c, i) => montar(c.id, c.id, i + 1, c.nome, listas.get(c.id) ?? []));
+      grupos = this.categorias().map((c, i) =>
+        montar(c.id, c.id, i + 1, c.nome, listas.get(c.id) ?? []),
+      );
       const semEtapa = listas.get(null);
       if (semEtapa?.length) grupos.push(montar(SEM_ETAPA, null, null, 'Sem grupo', semEtapa));
     } else {
@@ -195,7 +251,9 @@ export class GerenciamentoPage {
   private readonly listasPorEtapa = computed(() => {
     const listas = new Map<string | null, Item[]>(this.categorias().map((c) => [c.id, []]));
     listas.set(null, []);
-    const ordenados = [...this.itens()].sort((a, b) => a.ordem - b.ordem || compararNumero(a.numero, b.numero));
+    const ordenados = [...this.itens()].sort(
+      (a, b) => a.ordem - b.ordem || compararNumero(a.numero, b.numero),
+    );
     for (const item of ordenados) {
       const chave = item.categoriaId && listas.has(item.categoriaId) ? item.categoriaId : null;
       listas.get(chave)!.push(item);
@@ -208,7 +266,10 @@ export class GerenciamentoPage {
     const estado = new Map<string, SelecaoGrupo>();
     for (const grupo of this.grupos()) {
       const marcados = grupo.itens.filter((i) => selecionados.has(i.id)).length;
-      estado.set(grupo.id, !marcados ? 'nenhum' : marcados === grupo.itens.length ? 'todos' : 'alguns');
+      estado.set(
+        grupo.id,
+        !marcados ? 'nenhum' : marcados === grupo.itens.length ? 'todos' : 'alguns',
+      );
     }
     return estado;
   });
@@ -227,7 +288,9 @@ export class GerenciamentoPage {
       plural(r.criados, 'item criado', 'itens criados'),
       plural(r.atualizados, 'atualizado', 'atualizados'),
       plural(r.categoriasCriadas.length, 'grupo criado', 'grupos criados'),
-      ...(r.titulosIgnorados ? [plural(r.titulosIgnorados, 'título/subtítulo ignorado', 'títulos/subtítulos ignorados')] : []),
+      ...(r.titulosIgnorados
+        ? [plural(r.titulosIgnorados, 'título/subtítulo ignorado', 'títulos/subtítulos ignorados')]
+        : []),
     ].join(' · ');
   });
 
@@ -291,8 +354,9 @@ export class GerenciamentoPage {
       this.erroCarga.set(null);
     }
     try {
-      const { categorias, itens, ...sistema } = await this.api.obterSistema(id);
+      const { categorias, itens, responsaveis, ...sistema } = await this.api.obterSistema(id);
       this.sistema.set(sistema);
+      this.responsaveis.set(responsaveis);
       this.categorias.set(categorias);
       this.itens.set(itens);
       this.title.setTitle(`${sistema.nome} · Conformidade de Editais`);
@@ -316,7 +380,9 @@ export class GerenciamentoPage {
     this.atualizarLocal(item.id, { status });
     this.marcarSalvando(item.id, true);
     try {
-      const salvo = await this.enfileirar(item.id, () => this.api.atualizarItem(item.id, { status }));
+      const salvo = await this.enfileirar(item.id, () =>
+        this.api.atualizarItem(item.id, { status }),
+      );
       if (ultima()) this.substituir(salvo);
     } catch (erro) {
       if (ultima()) this.atualizarLocal(item.id, { status: anterior });
@@ -326,12 +392,65 @@ export class GerenciamentoPage {
     }
   }
 
+  /** Todos os itens visíveis do grupo já estão com este status (desabilita o botão do lote). */
+  protected grupoTodo(grupo: Grupo, status: StatusItem) {
+    return grupo.itens.every((i) => i.status === status);
+  }
+
+  /**
+   * Marca de uma vez os itens visíveis do grupo como Atende ou Não atende.
+   * Pede confirmação só quando vai sobrescrever itens que já tinham sido avaliados.
+   */
+  protected async marcarGrupo(grupo: Grupo, status: Exclude<StatusItem, 'PENDENTE'>) {
+    const alvo = grupo.itens.filter((i) => i.status !== status);
+    if (!alvo.length || this.marcandoGrupo()) return;
+
+    const rotulo = STATUS[status].rotulo;
+    const jaAvaliados = alvo.filter((i) => i.status !== 'PENDENTE').length;
+    if (
+      jaAvaliados &&
+      !(await this.confirmacao.confirmar({
+        titulo: `Marcar grupo como ${rotulo}`,
+        mensagem:
+          `${plural(alvo.length, 'item', 'itens')} de "${grupo.titulo}" ` +
+          `${alvo.length === 1 ? 'será marcado' : 'serão marcados'} como ${rotulo}. ` +
+          `${plural(jaAvaliados, 'item já avaliado terá', 'itens já avaliados terão')} a marcação trocada.`,
+        confirmar: `Marcar como ${rotulo}`,
+        tom: 'atencao',
+      }))
+    ) {
+      return;
+    }
+
+    const anteriores = new Map(alvo.map((i) => [i.id, i.status]));
+    // Invalida marcações individuais em andamento desses itens: o lote é a mais recente.
+    for (const id of anteriores.keys()) this.versaoPorItem.set(id, (this.versaoPorItem.get(id) ?? 0) + 1);
+
+    this.marcandoGrupo.set(grupo.id);
+    this.itens.update((lista) => lista.map((i) => (anteriores.has(i.id) ? { ...i, status } : i)));
+    try {
+      await this.api.marcarItens(this.id(), [...anteriores.keys()], status);
+      this.toast.sucesso(`${plural(alvo.length, 'item marcado', 'itens marcados')} como ${rotulo} em "${grupo.titulo}".`);
+    } catch (erro) {
+      this.itens.update((lista) =>
+        lista.map((i) => (anteriores.has(i.id) && i.status === status ? { ...i, status: anteriores.get(i.id)! } : i)),
+      );
+      this.toast.erro(`Não foi possível marcar o grupo: ${mensagemDeErro(erro)}`);
+    } finally {
+      this.marcandoGrupo.set(null);
+    }
+  }
+
   // ----- Reordenação (arrastar, posição digitada e mover em lote) -----
 
   protected soltarItem(evento: CdkDragDrop<Grupo, Grupo, Item>) {
     const mesmaLista = evento.previousContainer.data.id === evento.container.data.id;
     if (mesmaLista && evento.previousIndex === evento.currentIndex) return;
-    void this.moverItens([evento.item.data.id], evento.container.data.categoriaId, evento.currentIndex);
+    void this.moverItens(
+      [evento.item.data.id],
+      evento.container.data.categoriaId,
+      evento.currentIndex,
+    );
   }
 
   /** Posição digitada na linha (1-based, já limitada pela linha ao tamanho do grupo). */
@@ -346,9 +465,14 @@ export class GerenciamentoPage {
    * afetados, aplica de forma otimista e persiste numa única chamada; desfaz se a API recusar.
    * Retorna `true` se a nova ordem foi salva (ou se não havia nada a mudar).
    */
-  protected async moverItens(ids: string[], categoriaIdDestino: string | null, indiceDestino: number): Promise<boolean> {
+  protected async moverItens(
+    ids: string[],
+    categoriaIdDestino: string | null,
+    indiceDestino: number,
+  ): Promise<boolean> {
     const listas = this.listasPorEtapa();
-    const chaveDestino = categoriaIdDestino !== null && listas.has(categoriaIdDestino) ? categoriaIdDestino : null;
+    const chaveDestino =
+      categoriaIdDestino !== null && listas.has(categoriaIdDestino) ? categoriaIdDestino : null;
     const alvo = new Set(ids);
 
     const movidos: Item[] = [];
@@ -364,13 +488,18 @@ export class GerenciamentoPage {
     if (!movidos.length) return true;
 
     const destino = [...(novas.get(chaveDestino) ?? listas.get(chaveDestino) ?? [])];
-    const indice = Math.min(Math.max(Math.trunc(Number.isFinite(indiceDestino) ? indiceDestino : destino.length), 0), destino.length);
+    const indice = Math.min(
+      Math.max(Math.trunc(Number.isFinite(indiceDestino) ? indiceDestino : destino.length), 0),
+      destino.length,
+    );
     destino.splice(indice, 0, ...movidos);
     novas.set(chaveDestino, destino);
 
     const inalterado = [...novas].every(([chave, lista]) => {
       const original = listas.get(chave) ?? [];
-      return original.length === lista.length && original.every((item, i) => item.id === lista[i].id);
+      return (
+        original.length === lista.length && original.every((item, i) => item.id === lista[i].id)
+      );
     });
     if (inalterado) return true;
 
@@ -398,7 +527,10 @@ export class GerenciamentoPage {
     moveItemInArray(lista, de, para);
     this.categorias.set(lista.map((c, ordem) => ({ ...c, ordem })));
     try {
-      await this.api.reordenarCategorias(this.id(), lista.map((c) => c.id));
+      await this.api.reordenarCategorias(
+        this.id(),
+        lista.map((c) => c.id),
+      );
     } catch (erro) {
       this.categorias.set(anterior);
       this.toast.erro(`Não foi possível reordenar os grupos: ${mensagemDeErro(erro)}`);
@@ -457,18 +589,50 @@ export class GerenciamentoPage {
   private async moverSelecao(categoriaId: string | null, controlarEstado = true) {
     const selecionados = this.selecionados();
     if (!selecionados.size) return;
-    const ids = [...this.listasPorEtapa().values()].flat().filter((i) => selecionados.has(i.id)).map((i) => i.id);
+    const ids = [...this.listasPorEtapa().values()]
+      .flat()
+      .filter((i) => selecionados.has(i.id))
+      .map((i) => i.id);
     if (controlarEstado) this.movendoSelecao.set(true);
     try {
       const ok = await this.moverItens(ids, categoriaId, Infinity);
       if (!ok) return;
-      const nome = categoriaId ? this.categorias().find((c) => c.id === categoriaId)?.nome : 'Sem grupo';
-      this.toast.sucesso(`${plural(ids.length, 'item movido', 'itens movidos')} para "${nome ?? 'grupo'}".`);
+      const nome = categoriaId
+        ? this.categorias().find((c) => c.id === categoriaId)?.nome
+        : 'Sem grupo';
+      this.toast.sucesso(
+        `${plural(ids.length, 'item movido', 'itens movidos')} para "${nome ?? 'grupo'}".`,
+      );
       this.limparSelecao();
       if (categoriaId) this.expandir(categoriaId);
       else this.expandir(SEM_ETAPA);
     } finally {
       if (controlarEstado) this.movendoSelecao.set(false);
+    }
+  }
+
+  /** Exclui de uma vez todos os itens selecionados, após confirmação. */
+  protected async excluirSelecao() {
+    const ids = [...this.selecionados()];
+    if (!ids.length || this.excluindoSelecao()) return;
+    const confirmado = await this.confirmacao.confirmar({
+      titulo: 'Excluir itens selecionados',
+      mensagem: `${plural(ids.length, 'item selecionado será excluído', 'itens selecionados serão excluídos')}. Esta ação não pode ser desfeita.`,
+      confirmar: 'Excluir',
+    });
+    if (!confirmado) return;
+
+    this.excluindoSelecao.set(true);
+    try {
+      const { removidos } = await this.api.removerItens(this.id(), ids);
+      const excluidos = new Set(ids);
+      this.itens.update((lista) => lista.filter((i) => !excluidos.has(i.id)));
+      this.limparSelecao();
+      this.toast.sucesso(`${plural(removidos, 'item excluído', 'itens excluídos')}.`);
+    } catch (erro) {
+      this.toast.erro(mensagemDeErro(erro));
+    } finally {
+      this.excluindoSelecao.set(false);
     }
   }
 
@@ -484,7 +648,9 @@ export class GerenciamentoPage {
   }
 
   protected alternarTodos() {
-    this.recolhidos.set(this.todosRecolhidos() ? new Set() : new Set(this.grupos().map((g) => g.id)));
+    this.recolhidos.set(
+      this.todosRecolhidos() ? new Set() : new Set(this.grupos().map((g) => g.id)),
+    );
   }
 
   private expandir(id: string) {
@@ -502,7 +668,9 @@ export class GerenciamentoPage {
     try {
       const categoria = await this.api.criarCategoria(this.id(), nome);
       // O evento em tempo real pode ter recarregado a lista antes da resposta chegar.
-      this.categorias.update((lista) => (lista.some((c) => c.id === categoria.id) ? lista : [...lista, categoria]));
+      this.categorias.update((lista) =>
+        lista.some((c) => c.id === categoria.id) ? lista : [...lista, categoria],
+      );
       return categoria;
     } catch (erro) {
       this.toast.erro(mensagemDeErro(erro));
@@ -513,7 +681,9 @@ export class GerenciamentoPage {
   protected async renomearEtapa({ categoria, nome }: { categoria: Categoria; nome: string }) {
     try {
       const atualizada = await this.api.renomearCategoria(categoria.id, nome);
-      this.categorias.update((lista) => lista.map((c) => (c.id === atualizada.id ? atualizada : c)));
+      this.categorias.update((lista) =>
+        lista.map((c) => (c.id === atualizada.id ? atualizada : c)),
+      );
     } catch (erro) {
       this.toast.erro(mensagemDeErro(erro));
     }
@@ -521,12 +691,21 @@ export class GerenciamentoPage {
 
   protected async removerEtapa(categoria: Categoria) {
     const quantidade = this.itens().filter((i) => i.categoriaId === categoria.id).length;
-    const aviso = quantidade ? ` ${plural(quantidade, 'item dele ficará', 'itens dele ficarão')} em "Sem grupo".` : '';
-    if (!confirm(`Excluir o grupo "${categoria.nome}"?${aviso}`)) return;
+    const aviso = quantidade
+      ? ` ${plural(quantidade, 'item dele ficará', 'itens dele ficarão')} em "Sem grupo".`
+      : '';
+    const confirmado = await this.confirmacao.confirmar({
+      titulo: 'Excluir grupo',
+      mensagem: `O grupo "${categoria.nome}" será excluído.${aviso}`,
+      confirmar: 'Excluir grupo',
+    });
+    if (!confirmado) return;
     try {
       await this.api.removerCategoria(categoria.id);
       this.categorias.update((lista) => lista.filter((c) => c.id !== categoria.id));
-      this.itens.update((lista) => lista.map((i) => (i.categoriaId === categoria.id ? { ...i, categoriaId: null } : i)));
+      this.itens.update((lista) =>
+        lista.map((i) => (i.categoriaId === categoria.id ? { ...i, categoriaId: null } : i)),
+      );
     } catch (erro) {
       this.toast.erro(mensagemDeErro(erro));
     }
@@ -537,7 +716,11 @@ export class GerenciamentoPage {
     this.filtro.set('TODOS');
     this.busca.set('');
     this.expandir(categoria.id);
-    setTimeout(() => document.getElementById(`etapa-${categoria.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    setTimeout(() =>
+      document
+        .getElementById(`etapa-${categoria.id}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+    );
   }
 
   // ----- Itens -----
@@ -560,7 +743,13 @@ export class GerenciamentoPage {
 
   protected async removerItemEmEdicao() {
     const alvo = this.itemEmEdicao();
-    if (!alvo || alvo === 'novo' || !confirm('Excluir este item do sistema?')) return;
+    if (!alvo || alvo === 'novo') return;
+    const confirmado = await this.confirmacao.confirmar({
+      titulo: 'Excluir item',
+      mensagem: 'Este item será excluído do sistema. Esta ação não pode ser desfeita.',
+      confirmar: 'Excluir item',
+    });
+    if (!confirmado) return;
     try {
       await this.api.removerItem(alvo.id);
       this.itens.update((lista) => lista.filter((i) => i.id !== alvo.id));
@@ -585,7 +774,7 @@ export class GerenciamentoPage {
   protected async salvarSistema(dados: DadosSistema) {
     this.salvandoSistema.set(true);
     try {
-      this.sistema.set(await this.api.atualizarSistema(this.id(), dados));
+      this.definirSistema(await this.api.atualizarSistema(this.id(), dados));
       this.editandoSistema.set(false);
       this.toast.sucesso('Sistema atualizado.');
     } catch (erro) {
@@ -596,7 +785,13 @@ export class GerenciamentoPage {
   }
 
   protected async reiniciar() {
-    if (!confirm('Limpar todas as marcações desta avaliação? Todos os itens voltam para Pendente.')) return;
+    const confirmado = await this.confirmacao.confirmar({
+      titulo: 'Reiniciar avaliação',
+      mensagem: 'Todas as marcações desta avaliação serão limpas e os itens voltam para Pendente.',
+      confirmar: 'Limpar marcações',
+      icone: 'reiniciar',
+    });
+    if (!confirmado) return;
     const anterior = this.itens();
     this.itens.update((lista) => lista.map((i) => ({ ...i, status: 'PENDENTE' as const })));
     try {
@@ -608,8 +803,55 @@ export class GerenciamentoPage {
     }
   }
 
-  protected imprimir() {
-    window.print();
+  /**
+   * Gera o relatório em PDF (todos os itens, por grupo, independente de filtros): um PDF por responsável,
+   * cada um com o nome dele na assinatura, aberto numa aba própria. As abas são abertas ainda no clique
+   * para não serem barradas pelo bloqueador de pop-ups; as que forem bloqueadas viram download.
+   */
+  protected async imprimir() {
+    const sistema = this.sistema();
+    if (!sistema || this.gerandoRelatorio()) return;
+
+    const nomes = this.responsaveis().map((r) => r.nome);
+    const vias: Array<string | null> = nomes.length ? nomes : [null];
+    const janelas = vias.map((responsavel) => abrirAbaDeEspera(responsavel));
+    const pendentes = new Set(janelas.keys());
+
+    this.gerandoRelatorio.set(true);
+    try {
+      const base = {
+        sistema,
+        categorias: this.categorias(),
+        listas: this.listasPorEtapa(),
+        resumo: this.resumo(),
+        meta: this.meta(),
+        situacao: this.situacao(),
+      };
+      let baixados = 0;
+      for (const [indice, responsavel] of vias.entries()) {
+        const url = URL.createObjectURL(await gerarRelatorioPdf({ ...base, responsavel }));
+        const janela = janelas[indice];
+        if (janela && !janela.closed) {
+          janela.location.href = url;
+        } else {
+          baixarArquivo(url, nomeArquivoRelatorio(sistema.nome, responsavel));
+          baixados++;
+        }
+        pendentes.delete(indice);
+        setTimeout(() => URL.revokeObjectURL(url), VALIDADE_URL_RELATORIO_MS);
+      }
+      if (baixados && vias.length > 1) {
+        this.toast.info(
+          `O navegador bloqueou ${plural(baixados, 'aba', 'abas')}, então ${baixados === 1 ? 'o PDF foi baixado' : 'os PDFs foram baixados'}. ` +
+            'Permita pop-ups deste site para abrir todos os relatórios em abas.',
+        );
+      }
+    } catch (erro) {
+      for (const indice of pendentes) janelas[indice]?.close();
+      this.toast.erro(`Não foi possível gerar o relatório: ${mensagemDeErro(erro)}`);
+    } finally {
+      this.gerandoRelatorio.set(false);
+    }
   }
 
   protected definirModo(valor: string) {
@@ -637,11 +879,23 @@ export class GerenciamentoPage {
         this.itens.update((lista) => lista.filter((i) => i.id !== id));
         break;
       }
+      case 'itens.removidos': {
+        const ids = new Set((evento.dados as { ids: string[] }).ids);
+        this.itens.update((lista) => lista.filter((i) => !ids.has(i.id)));
+        break;
+      }
+      case 'itens.status': {
+        const { ids, status } = evento.dados as { ids: string[]; status: StatusItem };
+        const alterados = new Set(ids);
+        this.itens.update((lista) => lista.map((i) => (alterados.has(i.id) ? { ...i, status } : i)));
+        ids.forEach((id) => this.destacar(id));
+        break;
+      }
       case 'itens.reordenados':
         this.aplicarPosicoes(evento.dados as PosicaoItem[]);
         break;
       case 'sistema.atualizado':
-        this.sistema.set(evento.dados as Sistema);
+        this.definirSistema(evento.dados as SistemaComResponsaveis);
         break;
       case 'sistema.removido':
         this.toast.info('Este sistema foi excluído em outra sessão.');
@@ -654,8 +908,15 @@ export class GerenciamentoPage {
 
   // ----- Auxiliares de estado -----
 
+  private definirSistema({ responsaveis, ...sistema }: SistemaComResponsaveis) {
+    this.sistema.set(sistema);
+    this.responsaveis.set(responsaveis);
+  }
+
   private enfileirar<T>(itemId: string, tarefa: () => Promise<T>): Promise<T> {
-    const proxima = (this.filaPorItem.get(itemId) ?? Promise.resolve()).catch(() => undefined).then(tarefa);
+    const proxima = (this.filaPorItem.get(itemId) ?? Promise.resolve())
+      .catch(() => undefined)
+      .then(tarefa);
     this.filaPorItem.set(itemId, proxima);
     return proxima;
   }
@@ -666,7 +927,9 @@ export class GerenciamentoPage {
 
   private substituir(item: Item) {
     this.itens.update((lista) =>
-      lista.some((i) => i.id === item.id) ? lista.map((i) => (i.id === item.id ? item : i)) : [...lista, item],
+      lista.some((i) => i.id === item.id)
+        ? lista.map((i) => (i.id === item.id ? item : i))
+        : [...lista, item],
     );
   }
 
@@ -700,3 +963,31 @@ export class GerenciamentoPage {
     }, DURACAO_DESTAQUE_MS);
   }
 }
+
+/** Aba em branco com aviso de carregamento; `null` se o navegador bloquear o pop-up. */
+function abrirAbaDeEspera(responsavel: string | null): Window | null {
+  const janela = window.open('', '_blank');
+  if (janela) {
+    const texto = responsavel ? `Gerando relatório de ${responsavel}…` : 'Gerando relatório…';
+    janela.document.title = texto;
+    janela.document.body.textContent = texto;
+    janela.document.body.style.cssText =
+      'font: 14px system-ui, sans-serif; color: #2c3e60; padding: 24px';
+  }
+  return janela;
+}
+
+function baixarArquivo(url: string, nome: string) {
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = nome;
+  link.click();
+}
+
+const slug = (texto: string) =>
+  normalizarBusca(texto)
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+
+const nomeArquivoRelatorio = (sistema: string, responsavel: string | null) =>
+  `relatorio-${[slug(sistema) || 'sistema', responsavel ? slug(responsavel) : ''].filter(Boolean).join('-')}.pdf`;

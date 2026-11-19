@@ -20,7 +20,17 @@ export type NomeIcone =
   | 'calendario'
   | 'predio'
   | 'sol'
-  | 'lua';
+  | 'lua'
+  | 'coracao'
+  | 'usuarios'
+  | 'sair'
+  | 'usuario'
+  | 'email'
+  | 'cadeado'
+  | 'seta-cima'
+  | 'relogio'
+  | 'grafico'
+  | 'filtro';
 
 /** Ícones de traço no estilo Lucide, embutidos para não depender de pacote externo. */
 @Component({
@@ -33,7 +43,7 @@ export type NomeIcone =
       [attr.width]="tamanho()"
       [attr.height]="tamanho()"
       viewBox="0 0 24 24"
-      fill="none"
+      [attr.fill]="preenchido() ? 'currentColor' : 'none'"
       stroke="currentColor"
       stroke-width="2"
       stroke-linecap="round"
@@ -144,6 +154,49 @@ export type NomeIcone =
         @case ('lua') {
           <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
         }
+        @case ('coracao') {
+          <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+        }
+        @case ('usuarios') {
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        }
+        @case ('usuario') {
+          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+          <circle cx="12" cy="7" r="4" />
+        }
+        @case ('email') {
+          <rect width="20" height="16" x="2" y="4" rx="2" />
+          <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+        }
+        @case ('cadeado') {
+          <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        }
+        @case ('relogio') {
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        }
+        @case ('seta-cima') {
+          <path d="m5 12 7-7 7 7" />
+          <path d="M12 19V5" />
+        }
+        @case ('grafico') {
+          <path d="M3 3v16a2 2 0 0 0 2 2h16" />
+          <path d="M18 17V9" />
+          <path d="M13 17V5" />
+          <path d="M8 17v-3" />
+        }
+        @case ('filtro') {
+          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+        }
+        @case ('sair') {
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+          <polyline points="16 17 21 12 16 7" />
+          <line x1="21" x2="9" y1="12" y2="12" />
+        }
       }
     </svg>
   `,
@@ -151,4 +204,6 @@ export type NomeIcone =
 export class Icone {
   readonly nome = input.required<NomeIcone>();
   readonly tamanho = input(16);
+  /** Preenche o traço com a cor atual (ex.: coração de favorito marcado). */
+  readonly preenchido = input(false);
 }

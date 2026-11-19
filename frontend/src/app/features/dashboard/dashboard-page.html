@@ -1,0 +1,336 @@
+<header class="border-b border-line bg-linear-to-br from-brand-800 via-brand-900 to-brand-950">
+  <div class="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-6 px-4 py-10 sm:px-6">
+    <div>
+      <app-titulo-pagina sobrelinha="Painel de conformidade" [iconeSobrelinha]="icones.conformidade" [icone]="icones.dashboard">Dashboard</app-titulo-pagina>
+      <p class="mt-2 max-w-2xl leading-relaxed text-brand-200/90">
+        Visão geral do atendimento dos itens do edital em todos os sistemas. Use os filtros para comparar sistemas e clique em um gráfico para detalhar.
+      </p>
+    </div>
+    <button type="button" class="btn" [disabled]="atualizando()" (click)="carregar()">
+      @if (atualizando()) {
+        <span class="spinner"></span>
+      } @else {
+        <app-icone nome="reiniciar" />
+      }
+      Atualizar
+    </button>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6">
+  @if (carregando()) {
+    <div class="card h-44 animate-pulse bg-surface-2"></div>
+    <div class="grid gap-4 lg:grid-cols-3">
+      <div class="card h-80 animate-pulse bg-surface-2 lg:col-span-2"></div>
+      <div class="card h-80 animate-pulse bg-surface-2"></div>
+    </div>
+  } @else if (sistemas().length === 0) {
+    <div class="card flex flex-col items-center px-6 py-16 text-center">
+      <span class="grid size-12 place-items-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900 dark:text-brand-300"><app-icone nome="grafico" [tamanho]="22" /></span>
+      <h2 class="mt-4 text-lg font-semibold">Nenhum sistema cadastrado</h2>
+      <p class="mt-1 max-w-md text-sm text-muted">Cadastre um sistema e importe os itens do edital para ver os indicadores aqui.</p>
+      <a routerLink="/" class="btn btn-primary mt-6"><app-icone nome="monitor" /> Ver sistemas</a>
+    </div>
+  } @else {
+    <!-- Atendimento geral: todos os itens de todos os sistemas, sem filtros -->
+    <section class="card p-5 sm:p-6" aria-labelledby="titulo-global">
+      @let g = global();
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 id="titulo-global" class="text-xs font-medium tracking-wide text-muted uppercase">Atendimento geral · todos os sistemas</h2>
+          <p class="mt-1 text-5xl font-extrabold tracking-tight">{{ formatarPercentual(g.percentual) }}</p>
+          <p class="mt-1 text-sm text-muted">
+            {{ g.atende }} de {{ plural(g.total, 'item atendido', 'itens atendidos') }} em {{ plural(sistemas().length, 'sistema', 'sistemas') }}
+          </p>
+        </div>
+        <div class="text-right text-sm text-muted">
+          <p><span class="font-semibold text-ink">{{ formatarPercentual(g.avaliado) }}</span> já avaliados</p>
+          @if (globalDispensados()) {
+            <p class="mt-0.5 text-xs">{{ plural(globalDispensados(), 'item dispensado', 'itens dispensados') }} da POC fora do cálculo</p>
+          }
+        </div>
+      </div>
+
+      <div
+        class="mt-5 flex h-7 gap-0.5 overflow-hidden rounded-lg bg-surface-3"
+        role="img"
+        [attr.aria-label]="'Atende ' + g.atende + ', não atende ' + g.naoAtende + ', pendente ' + g.pendente + ' de ' + g.total + ' itens'"
+      >
+        @for (p of [
+          { rotulo: 'Atende', valor: g.atende, classe: 'bg-atende text-white' },
+          { rotulo: 'Não atende', valor: g.naoAtende, classe: 'bg-nao-atende text-white' },
+          { rotulo: 'Pendente', valor: g.pendente, classe: 'bg-pendente text-ink' }
+        ]; track p.rotulo) {
+          @if (p.valor > 0) {
+            <div
+              class="flex min-w-0 items-center rounded-md px-2 text-xs font-semibold tabular-nums transition-[width] duration-500"
+              [class]="p.classe"
+              [style.width.%]="parte(p.valor, g.total)"
+              [title]="p.rotulo + ': ' + p.valor + ' (' + formatarPercentual(parte(p.valor, g.total)) + ')'"
+            >
+              @if (parte(p.valor, g.total) >= 7) {
+                <span class="truncate">{{ formatarPercentual(parte(p.valor, g.total)) }}</span>
+              }
+            </div>
+          }
+        }
+      </div>
+
+      <ul class="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm text-ink-soft">
+        <li class="flex items-center gap-2"><span class="size-3 rounded bg-atende"></span>Atende <b class="tabular-nums">{{ g.atende }}</b></li>
+        <li class="flex items-center gap-2"><span class="size-3 rounded bg-nao-atende"></span>Não atende <b class="tabular-nums">{{ g.naoAtende }}</b></li>
+        <li class="flex items-center gap-2"><span class="size-3 rounded bg-pendente"></span>Pendente <b class="tabular-nums">{{ g.pendente }}</b></li>
+      </ul>
+
+      <div class="mt-5 grid gap-4 border-t border-line pt-4 sm:grid-cols-3">
+        @for (t of globalPorTipo(); track t.tipo) {
+          <div>
+            <div class="flex items-baseline justify-between text-xs">
+              <span class="text-muted">{{ t.rotulo }}s</span>
+              <span class="font-semibold tabular-nums">{{ formatarPercentual(t.percentual) }}</span>
+            </div>
+            <div class="mt-1.5 flex h-2 gap-px overflow-hidden rounded-full bg-surface-3">
+              <div class="h-full bg-atende transition-[width] duration-500" [style.width.%]="parte(t.atende, t.total)"></div>
+              <div class="h-full bg-nao-atende transition-[width] duration-500" [style.width.%]="parte(t.naoAtende, t.total)"></div>
+            </div>
+            <p class="mt-1 text-xs text-muted tabular-nums">{{ t.atende }} de {{ t.total }} atendidos</p>
+          </div>
+        }
+      </div>
+    </section>
+
+    <!-- Filtros -->
+    <section class="card p-4" aria-label="Filtros">
+      <div class="flex flex-wrap items-end gap-3">
+        <div class="min-w-48 flex-1">
+          <label class="label" for="filtro-busca">Buscar sistema</label>
+          <div class="relative">
+            <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-faint"><app-icone nome="busca" [tamanho]="15" /></span>
+            <input id="filtro-busca" type="search" class="input pl-9" placeholder="Nome, edital ou órgão" [ngModel]="busca()" (ngModelChange)="busca.set($event)" />
+          </div>
+        </div>
+        <div class="w-full sm:w-48">
+          <label class="label" for="filtro-orgao">Órgão</label>
+          <select id="filtro-orgao" class="input" [ngModel]="orgao()" (ngModelChange)="orgao.set($event)">
+            <option value="">Todos</option>
+            @for (o of orgaos(); track o) {
+              <option [value]="o">{{ o }}</option>
+            }
+          </select>
+        </div>
+        <div class="w-full sm:w-44">
+          <label class="label" for="filtro-tipo">Tipo de item</label>
+          <select id="filtro-tipo" class="input" [ngModel]="tipo()" (ngModelChange)="tipo.set($event)">
+            <option value="TODOS">Todos</option>
+            @for (t of TIPOS_AVALIADOS; track t) {
+              <option [value]="t">{{ TIPOS[t].rotulo }}s</option>
+            }
+          </select>
+        </div>
+        <div class="w-full sm:w-44">
+          <label class="label" for="filtro-situacao">Situação</label>
+          <select id="filtro-situacao" class="input" [ngModel]="situacao()" (ngModelChange)="situacao.set($event)">
+            <option value="">Todas</option>
+            <option value="atingida">{{ SITUACOES.atingida }}</option>
+            <option value="avaliacao">{{ SITUACOES.avaliacao }}</option>
+            <option value="vazio">{{ SITUACOES.vazio }}</option>
+          </select>
+        </div>
+        <div class="w-full sm:w-44">
+          <label class="label" for="filtro-ordem">Ordenar por</label>
+          <select id="filtro-ordem" class="input" [ngModel]="ordenacao()" (ngModelChange)="ordenacao.set($event)">
+            <option value="atendimento">Maior atendimento</option>
+            <option value="pendentes">Mais pendentes</option>
+            <option value="itens">Mais itens</option>
+            <option value="nome">Nome</option>
+          </select>
+        </div>
+        <label class="flex h-10.5 cursor-pointer items-center gap-2 text-sm text-ink-soft select-none">
+          <input type="checkbox" class="size-4 accent-brand-600" [ngModel]="somenteFavoritos()" (ngModelChange)="somenteFavoritos.set($event)" />
+          Só favoritos
+        </label>
+        @if (filtrosAtivos()) {
+          <button type="button" class="btn btn-ghost text-muted" (click)="limparFiltros()"><app-icone nome="fechar" [tamanho]="14" /> Limpar</button>
+        }
+      </div>
+    </section>
+
+    <!-- Indicadores dos sistemas filtrados -->
+    @let t = totaisFiltrados();
+    <section class="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Indicadores dos sistemas filtrados">
+      <div class="card p-4">
+        <p class="text-xs font-medium tracking-wide text-muted uppercase">Sistemas exibidos</p>
+        <p class="mt-1 text-3xl font-extrabold tracking-tight">{{ t.sistemas }}</p>
+        <p class="mt-1 text-xs text-muted">de {{ sistemas().length }} cadastrados</p>
+      </div>
+      <div class="card p-4">
+        <p class="text-xs font-medium tracking-wide text-muted uppercase">Meta atingida</p>
+        <p class="mt-1 text-3xl font-extrabold tracking-tight">{{ t.metaAtingida }} <span class="text-faint">/</span> {{ t.sistemas }}</p>
+        <p class="mt-1 text-xs text-muted">sistemas com a meta batida</p>
+      </div>
+      <div class="card p-4">
+        <p class="text-xs font-medium tracking-wide text-muted uppercase">Atendimento{{ sufixoTipo() }}</p>
+        <p class="mt-1 text-3xl font-extrabold tracking-tight">{{ formatarPercentual(t.atendimento.percentual) }}</p>
+        <p class="mt-1 text-xs text-muted tabular-nums">{{ t.atendimento.atende }} de {{ plural(t.atendimento.total, 'item', 'itens') }}</p>
+      </div>
+      <div class="card p-4">
+        <p class="text-xs font-medium tracking-wide text-muted uppercase">Pendentes</p>
+        <p class="mt-1 text-3xl font-extrabold tracking-tight">{{ t.atendimento.pendente }}</p>
+        <p class="mt-1 text-xs text-muted tabular-nums">{{ t.atendimento.naoAtende }} não atendidos</p>
+      </div>
+    </section>
+
+    @if (filtrados().length === 0) {
+      <div class="card flex flex-col items-center px-6 py-12 text-center">
+        <span class="grid size-12 place-items-center rounded-xl bg-surface-2 text-muted"><app-icone nome="filtro" [tamanho]="22" /></span>
+        <h2 class="mt-4 text-lg font-semibold">Nenhum sistema com esses filtros</h2>
+        <button type="button" class="btn mt-5" (click)="limparFiltros()">Limpar filtros</button>
+      </div>
+    } @else {
+      <div class="grid gap-4 lg:grid-cols-3">
+        <section class="card p-5 lg:col-span-2">
+          <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="font-semibold">Atendimento por sistema</h2>
+              <p class="text-xs text-muted">Clique em uma barra para ver o sistema em detalhe.</p>
+            </div>
+            <div class="inline-flex rounded-lg border border-line-strong p-0.5 text-xs font-medium" role="group" aria-label="Escala">
+              <button type="button" class="rounded-md px-2.5 py-1 transition-colors" [class]="escala() === 'percentual' ? 'bg-brand-600 text-white' : 'text-muted hover:text-ink'" [attr.aria-pressed]="escala() === 'percentual'" (click)="escala.set('percentual')">%</button>
+              <button type="button" class="rounded-md px-2.5 py-1 transition-colors" [class]="escala() === 'quantidade' ? 'bg-brand-600 text-white' : 'text-muted hover:text-ink'" [attr.aria-pressed]="escala() === 'quantidade'" (click)="escala.set('quantidade')">Quantidade</button>
+            </div>
+          </div>
+          <div echarts class="w-full" [style.height.px]="alturaPorSistema()" [options]="graficoSistemas()" [autoResize]="true" (chartClick)="aoClicarSistema($event)"></div>
+        </section>
+
+        <section class="card p-5">
+          <h2 class="font-semibold">Situação dos sistemas</h2>
+          <p class="text-xs text-muted">Clique em uma fatia para filtrar.</p>
+          <div echarts class="mt-3 h-72 w-full" [options]="graficoSituacao()" [autoResize]="true" (chartClick)="aoClicarSituacao($event)"></div>
+        </section>
+      </div>
+
+      <div class="grid gap-4 lg:grid-cols-3">
+        <section class="card p-5">
+          <h2 class="font-semibold">Itens por tipo</h2>
+          <p class="text-xs text-muted">Soma dos sistemas exibidos.</p>
+          <div echarts class="mt-3 h-72 w-full" [options]="graficoTipos()" [autoResize]="true"></div>
+        </section>
+
+        <section class="card p-5 lg:col-span-2">
+          <h2 class="font-semibold">Essenciais × meta</h2>
+          <p class="text-xs text-muted">Percentual de essenciais atendidos; o traço marca a meta de cada sistema.</p>
+          <div echarts class="mt-3 w-full" [style.height.px]="alturaMeta()" [options]="graficoMeta()" [autoResize]="true" (chartClick)="aoClicarSistema($event)"></div>
+        </section>
+      </div>
+
+      <!-- Sistema em destaque -->
+      @if (selecionado(); as s) {
+        <section class="card p-5 sm:p-6" aria-labelledby="titulo-detalhe">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div class="min-w-0">
+              <p class="text-xs font-semibold tracking-wide text-muted uppercase">Sistema em destaque</p>
+              <h2 id="titulo-detalhe" class="mt-1 truncate text-xl font-semibold">{{ nomeCompleto(s) }}</h2>
+              <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
+                @if (s.numero) {
+                  <span class="flex items-center gap-1.5"><app-icone nome="planilha" [tamanho]="14" />{{ s.numero }}</span>
+                }
+                @if (s.orgao) {
+                  <span class="flex items-center gap-1.5"><app-icone nome="predio" [tamanho]="14" />{{ s.orgao }}</span>
+                }
+                @if (s.dataApresentacao) {
+                  <span class="flex items-center gap-1.5"><app-icone nome="calendario" [tamanho]="14" />{{ formatarData(s.dataApresentacao) }}</span>
+                }
+                <span class="flex items-center gap-1.5"><app-icone nome="checklist" [tamanho]="14" />{{ plural(s.resumo.totalItens, 'item', 'itens') }}</span>
+              </div>
+            </div>
+            <div class="flex w-full flex-wrap items-end gap-2 sm:w-auto">
+              <div class="w-full sm:w-64">
+                <label class="label" for="sistema-destaque">Trocar sistema</label>
+                <select id="sistema-destaque" class="input" [ngModel]="s.id" (ngModelChange)="selecionar($event)">
+                  @for (l of filtrados(); track l.sistema.id) {
+                    <option [value]="l.sistema.id">{{ nomeCompleto(l.sistema) }}</option>
+                  }
+                </select>
+              </div>
+              <a class="btn btn-primary" target="_blank" [routerLink]="['/sistemas', s.id]"><app-icone nome="checklist" /> Abrir itens</a>
+            </div>
+          </div>
+
+          <app-painel-meta class="mt-5" [resumo]="s.resumo" [meta]="s.metaPercentual" />
+
+          <div class="mt-6">
+            <h3 class="font-semibold">Atendimento por etapa</h3>
+            @if (etapasSelecionado().length) {
+              <div echarts class="mt-2 w-full" [style.height.px]="alturaEtapas()" [options]="graficoEtapas()" [autoResize]="true"></div>
+            } @else {
+              <p class="mt-2 text-sm text-muted">Nenhum item {{ tipo() === 'TODOS' ? '' : 'deste tipo ' }}cadastrado neste sistema.</p>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- Tabela (mesmos dados dos gráficos) -->
+      <section class="card overflow-hidden" aria-labelledby="titulo-tabela">
+        <h2 id="titulo-tabela" class="px-5 pt-5 font-semibold">Sistemas</h2>
+        <div class="mt-3 overflow-x-auto">
+          <table class="w-full min-w-200 text-sm">
+            <thead class="border-y border-line bg-surface-2 text-left text-xs tracking-wide text-muted uppercase">
+              <tr>
+                <th class="sticky left-0 z-10 bg-surface-2 px-5 py-2.5 font-medium max-sm:px-4 sm:static">Sistema</th>
+                <th class="px-3 py-2.5 font-medium">Órgão</th>
+                <th class="px-3 py-2.5 text-right font-medium">Itens</th>
+                <th class="px-3 py-2.5 text-right font-medium">Atende</th>
+                <th class="px-3 py-2.5 text-right font-medium">Não atende</th>
+                <th class="px-3 py-2.5 text-right font-medium">Pendente</th>
+                <th class="px-3 py-2.5 font-medium">Atendimento</th>
+                <th class="px-3 py-2.5 text-right font-medium">Essenciais</th>
+                <th class="px-5 py-2.5 font-medium">Situação</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-line">
+              @for (l of filtrados(); track l.sistema.id) {
+                <tr
+                  class="cursor-pointer transition-colors hover:bg-surface-2"
+                  [class]="idDestaque() === l.sistema.id ? 'bg-brand-50 dark:bg-surface-3' : ''"
+                  (click)="selecionar(l.sistema.id)"
+                >
+                  <td class="sticky left-0 z-10 max-w-64 truncate bg-surface px-5 py-2.5 font-medium max-sm:max-w-40 max-sm:px-4 max-sm:shadow-[6px_0_8px_-6px_rgb(0_0_0/0.25)] sm:static sm:bg-transparent">
+                    <a class="hover:text-brand-600 hover:underline dark:hover:text-brand-300" [routerLink]="['/sistemas', l.sistema.id]" (click)="$event.stopPropagation()">{{ nomeCompleto(l.sistema) }}</a>
+                  </td>
+                  <td class="max-w-48 truncate px-3 py-2.5 text-muted">{{ l.sistema.orgao || '—' }}</td>
+                  <td class="px-3 py-2.5 text-right tabular-nums">{{ l.atendimento.total }}</td>
+                  <td class="px-3 py-2.5 text-right tabular-nums">{{ l.atendimento.atende }}</td>
+                  <td class="px-3 py-2.5 text-right tabular-nums">{{ l.atendimento.naoAtende }}</td>
+                  <td class="px-3 py-2.5 text-right tabular-nums">{{ l.atendimento.pendente }}</td>
+                  <td class="px-3 py-2.5">
+                    <div class="flex items-center gap-2">
+                      <div class="flex h-1.5 w-24 gap-px overflow-hidden rounded-full bg-surface-3">
+                        <div class="h-full bg-atende" [style.width.%]="parte(l.atendimento.atende, l.atendimento.total)"></div>
+                        <div class="h-full bg-nao-atende" [style.width.%]="parte(l.atendimento.naoAtende, l.atendimento.total)"></div>
+                      </div>
+                      <span class="tabular-nums">{{ formatarPercentual(l.atendimento.percentual) }}</span>
+                    </div>
+                  </td>
+                  <td class="px-3 py-2.5 text-right tabular-nums">{{ formatarPercentual(l.sistema.resumo.essenciais.percentual) }}</td>
+                  <td class="px-5 py-2.5">
+                    @switch (situacaoDo(l.sistema)) {
+                      @case ('atingida') {
+                        <span class="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300">✓ Meta atingida</span>
+                      }
+                      @case ('vazio') {
+                        <span class="rounded-full border border-line bg-surface-2 px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap text-muted dark:bg-surface-3">Sem itens</span>
+                      }
+                      @default {
+                        <span class="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">○ Em avaliação</span>
+                      }
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    }
+  }
+</main>

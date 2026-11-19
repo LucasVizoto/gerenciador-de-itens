@@ -8,9 +8,12 @@ import type {
   Item,
   PosicaoItem,
   ResultadoImportacao,
-  Sistema,
+  SistemaComResponsaveis,
   SistemaComResumo,
+  SistemaDashboard,
   SistemaDetalhe,
+  StatusItem,
+  Usuario,
 } from './models';
 
 /** Sempre relativo: em dev o proxy do Angular encaminha /api, no Docker quem encaminha é o Nginx. */
@@ -24,8 +27,38 @@ export class ApiService {
     return firstValueFrom(requisicao);
   }
 
-  listarSistemas() {
-    return this.enviar(this.http.get<SistemaComResumo[]>(`${API}/sistemas`));
+  listarSistemas(somenteFavoritos = false) {
+    const params = somenteFavoritos ? { favoritos: 'true' } : undefined;
+    return this.enviar(this.http.get<SistemaComResumo[]>(`${API}/sistemas`, { params }));
+  }
+
+  obterDashboard() {
+    return this.enviar(this.http.get<SistemaDashboard[]>(`${API}/dashboard`));
+  }
+
+  favoritar(sistemaId: string) {
+    return this.enviar(this.http.put<void>(`${API}/sistemas/${sistemaId}/favorito`, {}));
+  }
+
+  desfavoritar(sistemaId: string) {
+    return this.enviar(this.http.delete<void>(`${API}/sistemas/${sistemaId}/favorito`));
+  }
+
+  listarUsuarios() {
+    return this.enviar(this.http.get<Usuario[]>(`${API}/usuarios`));
+  }
+
+  atualizarUsuario(id: string, dados: Partial<Pick<Usuario, 'ativo' | 'administrador'>>) {
+    return this.enviar(this.http.patch<Usuario>(`${API}/usuarios/${id}`, dados));
+  }
+
+  /** Define uma senha provisória; o usuário cria a nova no próximo acesso. */
+  redefinirSenha(id: string, senha: string) {
+    return this.enviar(this.http.post<Usuario>(`${API}/usuarios/${id}/redefinir-senha`, { senha }));
+  }
+
+  removerUsuario(id: string) {
+    return this.enviar(this.http.delete<void>(`${API}/usuarios/${id}`));
   }
 
   obterSistema(id: string) {
@@ -33,11 +66,11 @@ export class ApiService {
   }
 
   criarSistema(dados: DadosSistema) {
-    return this.enviar(this.http.post<Sistema>(`${API}/sistemas`, dados));
+    return this.enviar(this.http.post<SistemaComResponsaveis>(`${API}/sistemas`, dados));
   }
 
   atualizarSistema(id: string, dados: DadosSistema) {
-    return this.enviar(this.http.put<Sistema>(`${API}/sistemas/${id}`, dados));
+    return this.enviar(this.http.put<SistemaComResponsaveis>(`${API}/sistemas/${id}`, dados));
   }
 
   removerSistema(id: string) {
@@ -45,7 +78,9 @@ export class ApiService {
   }
 
   reiniciarAvaliacao(sistemaId: string) {
-    return this.enviar(this.http.post<{ reiniciados: number }>(`${API}/sistemas/${sistemaId}/reiniciar`, {}));
+    return this.enviar(
+      this.http.post<{ reiniciados: number }>(`${API}/sistemas/${sistemaId}/reiniciar`, {}),
+    );
   }
 
   urlExportacao(sistemaId: string) {
@@ -53,7 +88,9 @@ export class ApiService {
   }
 
   criarCategoria(sistemaId: string, nome: string) {
-    return this.enviar(this.http.post<Categoria>(`${API}/sistemas/${sistemaId}/categorias`, { nome }));
+    return this.enviar(
+      this.http.post<Categoria>(`${API}/sistemas/${sistemaId}/categorias`, { nome }),
+    );
   }
 
   renomearCategoria(id: string, nome: string) {
@@ -65,7 +102,9 @@ export class ApiService {
   }
 
   reordenarCategorias(sistemaId: string, ids: string[]) {
-    return this.enviar(this.http.put<Categoria[]>(`${API}/sistemas/${sistemaId}/categorias/ordem`, { ids }));
+    return this.enviar(
+      this.http.put<Categoria[]>(`${API}/sistemas/${sistemaId}/categorias/ordem`, { ids }),
+    );
   }
 
   criarItem(sistemaId: string, dados: DadosItem) {
@@ -80,22 +119,48 @@ export class ApiService {
     return this.enviar(this.http.delete<void>(`${API}/itens/${id}`));
   }
 
+  removerItens(sistemaId: string, ids: string[]) {
+    return this.enviar(
+      this.http.post<{ removidos: number }>(`${API}/sistemas/${sistemaId}/itens/excluir`, { ids }),
+    );
+  }
+
+  /** Marca vários itens de uma vez (ex.: todos os itens de um grupo). */
+  marcarItens(sistemaId: string, ids: string[], status: StatusItem) {
+    return this.enviar(
+      this.http.post<{ atualizados: number }>(`${API}/sistemas/${sistemaId}/itens/status`, { ids, status }),
+    );
+  }
+
   reordenarItens(sistemaId: string, itens: PosicaoItem[]) {
-    return this.enviar(this.http.put<{ atualizados: number }>(`${API}/sistemas/${sistemaId}/itens/ordem`, { itens }));
+    return this.enviar(
+      this.http.put<{ atualizados: number }>(`${API}/sistemas/${sistemaId}/itens/ordem`, { itens }),
+    );
   }
 
   importarCsv(sistemaId: string, arquivo: File) {
     const formulario = new FormData();
     formulario.append('arquivo', arquivo, arquivo.name);
     return this.enviar(
-      this.http.post<ResultadoImportacao>(`${API}/sistemas/${sistemaId}/itens/importar`, formulario),
+      this.http.post<ResultadoImportacao>(
+        `${API}/sistemas/${sistemaId}/itens/importar`,
+        formulario,
+      ),
     );
   }
 }
 
+/** Código estável enviado pela API em alguns erros (ex.: `TROCAR_SENHA`). */
+export function codigoDeErro(erro: unknown): string | null {
+  if (!(erro instanceof HttpErrorResponse)) return null;
+  const corpo = erro.error as { codigo?: unknown } | null;
+  return typeof corpo?.codigo === 'string' ? corpo.codigo : null;
+}
+
 export function mensagemDeErro(erro: unknown): string {
   if (erro instanceof HttpErrorResponse) {
-    if (erro.status === 0) return 'Não foi possível conectar à API. Verifique se o backend está no ar.';
+    if (erro.status === 0)
+      return 'Não foi possível conectar à API. Verifique se o backend está no ar.';
     const corpo = erro.error as { mensagem?: string; erros?: Array<{ mensagem: string }> } | null;
     const detalhe = corpo?.erros?.[0]?.mensagem;
     if (corpo?.mensagem) return detalhe ? `${corpo.mensagem}: ${detalhe}` : corpo.mensagem;

@@ -13,6 +13,7 @@ O fluxo, os campos e a identidade visual foram inspirados no checklist da [POC d
 - [Subindo o ambiente com Docker Compose](#subindo-o-ambiente-com-docker-compose)
 - [Acessando as aplicações](#acessando-as-aplicações)
 - [Migrações do banco de dados](#migrações-do-banco-de-dados)
+- [Usuários e acesso](#usuários-e-acesso)
 - [Dados de demonstração (seed)](#dados-de-demonstração-seed)
 - [Desenvolvimento local (hot reload)](#desenvolvimento-local-hot-reload)
 - [Importação de CSV](#importação-de-csv)
@@ -57,7 +58,7 @@ O frontend usa o **Angular 21 (LTS)** porque o CLI do Angular 22 exige Node.js 2
 │   ├── docker-entrypoint.sh      # aplica migrações, roda o seed e sobe a API
 │   ├── prisma.config.ts
 │   ├── prisma/
-│   │   ├── schema.prisma         # Sistema, Categoria (etapa), Item
+│   │   ├── schema.prisma         # Sistema, Categoria (etapa), Item, Usuario, Sessao, UsuarioFavorito
 │   │   └── migrations/           # migrações SQL versionadas
 │   └── src/
 │       ├── server.ts             # bootstrap / graceful shutdown
@@ -143,7 +144,7 @@ docker compose down -v            # para tudo e APAGA o volume do banco
 | Health check da API | http://localhost:3333/api/health |
 | PostgreSQL | `localhost:5432`, banco `edital`, usuário `edital`, senha `edital` |
 
-Pela aplicação web, a API também responde em http://localhost:8080/api (proxy do Nginx). Ao abrir a aplicação, o sistema **Gestão de Frotas** já aparece na lista. Clique nele para importar o CSV e gerenciar os itens do edital.
+Pela aplicação web, a API também responde em http://localhost:8080/api (proxy do Nginx). Ao abrir a aplicação, faça login com o administrador inicial (veja [Usuários e acesso](#usuários-e-acesso)) e o sistema **Gestão de Frotas** já aparece na lista. Clique nele para importar o CSV e gerenciar os itens do edital.
 
 ## Migrações do banco de dados
 
@@ -178,6 +179,24 @@ cd backend && npx prisma migrate reset
 ```
 
 Para explorar os dados com o Prisma Studio: `cd backend && npm run db:studio`.
+
+## Usuários e acesso
+
+O login é obrigatório: sem sessão, a API responde 401 e a aplicação abre a tela **Entrar**. Quem não tem conta usa **Criar conta** (nome completo, e-mail e senha de no mínimo 6 caracteres). A conta nasce **inativa** e sem perfil de administrador: a tela confirma o cadastro e avisa que o acesso aguarda aprovação. Enquanto isso, o login responde 403 com "Seu acesso ainda não foi liberado". Um administrador libera o acesso ligando a chave **Ativo** na tela **Usuários**, onde os pendentes aparecem primeiro com o selo "Aguardando liberação".
+
+A migração `20261118000000_usuarios_favoritos` cria o administrador inicial:
+
+| E-mail | Senha |
+| --- | --- |
+| `l.vizoto@eddydata.com.br` | `123456` |
+
+> Troque essa senha antes de usar o sistema em produção. O hash fica na migração; para gerar outro: `cd backend && npx tsx -e "import('./src/lib/senha.ts').then(async m => console.log(await m.gerarHashSenha('nova-senha')))"` e atualize a coluna `senha_hash` do usuário.
+
+- **Sessão:** cookie `sessao` httpOnly (`SameSite=Lax`, válido por 7 dias). O banco guarda só o SHA-256 do token, na tabela `sessoes`. Como o cookie vai junto em qualquer requisição de mesma origem, o tempo real (SSE) continua funcionando.
+- **Senhas:** hash scrypt (`node:crypto`), formato `scrypt$<salt>$<hash>`.
+- **Usuário inativo:** não consegue entrar, e as sessões abertas dele são derrubadas na hora em que é desativado.
+- **Administradores:** veem o menu **Usuários**, onde ativam/desativam, promovem/rebaixam e excluem usuários. Um administrador não pode desativar, rebaixar nem excluir a si mesmo.
+- **Favoritos:** o coração no canto superior direito de cada sistema marca o favorito do usuário logado (tabela `usuario_favoritos`). Os favoritos aparecem primeiro na lista de sistemas, e o menu **Favoritos** mostra só eles.
 
 ## Dados de demonstração (seed)
 
@@ -312,12 +331,21 @@ A meta (%) é configurável por sistema. O cálculo é feito no backend (`module
 
 ## API REST
 
-Todas as rotas usam o prefixo `/api`. As entradas são validadas com Zod e os erros retornam `{ "mensagem": "...", "erros": [{ "campo", "mensagem" }] }` com status 400, 404, 409, 415 ou 422.
+Todas as rotas usam o prefixo `/api` e, exceto `/health`, `/auth/login` e `/auth/cadastro`, exigem o cookie de sessão (sem ele: 401; rotas de administrador com usuário comum: 403). As entradas são validadas com Zod e os erros retornam `{ "mensagem": "...", "erros": [{ "campo", "mensagem" }] }` com status 400, 404, 409, 415 ou 422.
 
 | Método | Rota | Descrição |
 | --- | --- | --- |
 | GET | `/health` | saúde da API e do banco |
-| GET | `/sistemas` | lista sistemas com o resumo da meta |
+| POST | `/auth/cadastro` | cria a conta `{ nomeCompleto, email, senha }` inativa, aguardando aprovação (não abre sessão) |
+| POST | `/auth/login` | entra `{ email, senha }` e define o cookie `sessao` |
+| POST | `/auth/logout` | encerra a sessão |
+| GET | `/auth/me` | usuário logado |
+| GET | `/usuarios` | lista usuários (administrador) |
+| PATCH | `/usuarios/:id` | altera `{ ativo?, administrador? }` (administrador) |
+| DELETE | `/usuarios/:id` | exclui o usuário (administrador) |
+| GET | `/sistemas` | lista sistemas com o resumo da meta e o campo `favorito`, favoritos primeiro; `?favoritos=true` traz só os favoritos |
+| PUT | `/sistemas/:id/favorito` | marca o sistema como favorito do usuário |
+| DELETE | `/sistemas/:id/favorito` | desmarca o favorito |
 | POST | `/sistemas` | cria sistema `{ nome, versao?, descricao?, numero?, orgao?, objeto?, dataApresentacao?, metaPercentual? }` |
 | GET | `/sistemas/:id` | sistema com etapas e itens do edital |
 | PUT | `/sistemas/:id` | atualiza o sistema |
@@ -333,20 +361,25 @@ Todas as rotas usam o prefixo `/api`. As entradas são validadas com Zod e os er
 | PATCH | `/itens/:id` | atualiza item, incluindo `status`: `PENDENTE`, `ATENDE` ou `NAO_ATENDE` |
 | DELETE | `/itens/:id` | remove item |
 | PUT | `/sistemas/:id/itens/ordem` | grava a ordem e a etapa dos itens `{ itens: [{ id, categoriaId, ordem }] }` |
+| POST | `/sistemas/:id/itens/excluir` | exclusão em lote `{ ids: [...] }`; responde `{ removidos }` |
 | POST | `/sistemas/:id/itens/importar` | upload `multipart/form-data` do CSV (campo `arquivo`); responde `{ arquivo, linhasLidas, criados, atualizados, categoriasCriadas, colunas, colunasIgnoradas, titulosIgnorados, avisos }` |
 
-Exemplos com `curl`:
+Exemplos com `curl` (o primeiro guarda o cookie da sessão em `cookies.txt`, usado pelos demais):
 
 ```bash
+# entrar
+curl -c cookies.txt http://localhost:3333/api/auth/login \
+  -H "Content-Type: application/json" -d '{"email":"l.vizoto@eddydata.com.br","senha":"123456"}'
+
 # marcar um item como atendido
-curl -X PATCH http://localhost:3333/api/itens/<ID_DO_ITEM> \
+curl -b cookies.txt -X PATCH http://localhost:3333/api/itens/<ID_DO_ITEM> \
   -H "Content-Type: application/json" -d '{"status":"ATENDE"}'
 
 # importar uma planilha
-curl -F "arquivo=@itens.csv" http://localhost:3333/api/sistemas/<ID_DO_SISTEMA>/itens/importar
+curl -b cookies.txt -F "arquivo=@itens.csv" http://localhost:3333/api/sistemas/<ID_DO_SISTEMA>/itens/importar
 
 # acompanhar os eventos em tempo real
-curl -N http://localhost:3333/api/sistemas/<ID_DO_SISTEMA>/eventos
+curl -b cookies.txt -N http://localhost:3333/api/sistemas/<ID_DO_SISTEMA>/eventos
 ```
 
 ## Testes e verificações

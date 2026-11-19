@@ -1,11 +1,17 @@
-<header class="border-b border-line bg-linear-to-br from-brand-800 via-brand-900 to-brand-950">
-  <div class="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-6 px-4 py-10 sm:px-6">
-    <div>
-      <p class="eyebrow">Painel de conformidade</p>
-      <h1 class="mt-3 text-3xl font-bold tracking-tight text-white">Sistemas</h1>
-      <p class="mt-2 max-w-2xl leading-relaxed text-brand-200/90">
-        Cada sistema reúne os itens do edital em que ele é apresentado. Clique no sistema para importar a planilha e marcar o atendimento.
-      </p>
+<header #cabecalho class="border-b border-line bg-linear-to-br from-brand-800 via-brand-900 to-brand-950">
+  <div class="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-6 px-4 py-8 sm:px-6 sm:py-10">
+    <div class="min-w-0">
+      @if (somenteFavoritos()) {
+        <app-titulo-pagina sobrelinha="Painel de conformidade" [iconeSobrelinha]="icones.conformidade" [icone]="icones.favoritos">Favoritos</app-titulo-pagina>
+        <p class="mt-2 max-w-2xl leading-relaxed text-brand-200/90">
+          Os sistemas que você marcou com o coração. Clique no coração de novo para tirá-lo desta lista.
+        </p>
+      } @else {
+        <app-titulo-pagina sobrelinha="Painel de conformidade" [iconeSobrelinha]="icones.conformidade" [icone]="icones.sistemas">Sistemas</app-titulo-pagina>
+        <p class="mt-2 max-w-2xl leading-relaxed text-brand-200/90">
+          Cada sistema reúne os itens do edital em que ele é apresentado. Clique no sistema para importar a planilha e marcar o atendimento.
+        </p>
+      }
     </div>
     <button type="button" class="btn btn-primary" (click)="criando.set(true)">
       <app-icone nome="mais" /> Novo sistema
@@ -15,34 +21,43 @@
 
 <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6">
   @if (carregando()) {
-    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      @for (i of [1, 2, 3]; track i) {
-        <div class="card h-56 animate-pulse bg-surface-2"></div>
+    <div class="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3">
+      @for (i of [1, 2, 3, 4]; track i) {
+        <div class="card h-48 animate-pulse bg-surface-2 sm:h-56"></div>
       }
     </div>
   } @else {
-    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <!-- 2 por linha também no celular (card compacto abaixo de md); 3 no desktop largo. -->
+    <div class="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3">
       @for (sistema of sistemas(); track sistema.id) {
-        <article class="card group relative flex flex-col p-5 transition-colors hover:border-brand-400 hover:shadow-md hover:shadow-brand-950/10 dark:hover:border-brand-600 dark:hover:bg-surface-2 dark:hover:shadow-none">
-          <div class="flex items-start justify-between gap-3">
+        <article class="card group relative flex min-w-0 flex-col p-3.5 sm:p-5 transition-colors hover:border-brand-400 hover:shadow-md hover:shadow-brand-950/10 dark:hover:border-brand-600 dark:hover:bg-surface-2 dark:hover:shadow-none">
+          <div class="flex items-start justify-between gap-2 sm:gap-3">
             <div class="min-w-0">
               <p class="truncate text-xs font-semibold tracking-wide text-muted uppercase">{{ sistema.numero || 'Edital' }}</p>
-              <h2 class="mt-1 truncate text-lg font-semibold text-ink group-hover:text-brand-700 dark:group-hover:text-white">
+              <h2 class="mt-1 line-clamp-2 text-[15px] leading-snug font-semibold break-words text-ink sm:text-lg group-hover:text-brand-700 md:truncate dark:group-hover:text-white">
                 <a [routerLink]="['/sistemas', sistema.id]" class="after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none">
                   {{ sistema.nome }}{{ sistema.versao ? ' · v' + sistema.versao : '' }}
                 </a>
               </h2>
+              <div class="mt-2 md:hidden"><ng-container [ngTemplateOutlet]="selo" [ngTemplateOutletContext]="{ $implicit: sistema }" /></div>
             </div>
-            @if (sistema.resumo.metaAtingida) {
-              <span class="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300">Meta atingida</span>
-            } @else if (sistema.resumo.totalItens === 0) {
-              <span class="shrink-0 rounded-full border border-line bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-muted dark:bg-surface-3">Sem itens</span>
-            } @else {
-              <span class="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">Em avaliação</span>
-            }
+            <div class="flex shrink-0 items-center gap-1.5">
+              <span class="hidden md:contents"><ng-container [ngTemplateOutlet]="selo" [ngTemplateOutletContext]="{ $implicit: sistema }" /></span>
+              <button
+                type="button"
+                class="relative z-10 -mr-1.5 -mt-1 rounded-md p-1.5 transition-colors"
+                [class]="sistema.favorito ? 'text-rose-500 dark:text-rose-400' : 'text-faint hover:text-rose-500 dark:hover:text-rose-300'"
+                [attr.aria-pressed]="sistema.favorito"
+                [attr.aria-label]="(sistema.favorito ? 'Remover dos favoritos: ' : 'Adicionar aos favoritos: ') + sistema.nome"
+                [title]="sistema.favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos'"
+                (click)="alternarFavorito(sistema, $event)"
+              >
+                <app-icone nome="coracao" [tamanho]="18" [preenchido]="sistema.favorito" />
+              </button>
+            </div>
           </div>
 
-          <div class="mt-3 space-y-1.5 text-sm text-muted">
+          <div class="mt-3 space-y-1.5 text-xs text-muted sm:text-sm">
             @if (sistema.descricao) {
               <p class="flex items-center gap-2">
                 <app-icone nome="monitor" [tamanho]="14" />
@@ -59,17 +74,18 @@
 
           <div class="mt-auto pt-5">
             <div class="flex items-baseline justify-between text-xs">
-              <span class="text-muted">Essenciais · meta {{ sistema.metaPercentual }}%</span>
+              <span class="truncate text-muted"><span class="max-md:hidden">Essenciais · meta</span><span class="md:hidden">Meta</span> {{ sistema.metaPercentual }}%</span>
               <span class="font-semibold text-ink tabular-nums">{{ formatarPercentual(sistema.resumo.essenciais.percentual) }}</span>
             </div>
             <div class="relative mt-2 h-2 overflow-hidden rounded-full bg-surface-3">
               <div class="h-full rounded-full bg-brand-500 transition-all" [style.width.%]="sistema.resumo.essenciais.percentual"></div>
               <div class="absolute inset-y-0 w-0.5 bg-ink/60" [style.left.%]="sistema.metaPercentual"></div>
             </div>
-            <div class="mt-3 flex items-center justify-between text-xs text-muted">
-              <span>
-                {{ sistema.resumo.essenciais.atendidos }}/{{ sistema.resumo.essenciais.total }} essenciais ·
-                {{ sistema.resumo.obrigatorios.atendidos }}/{{ sistema.resumo.obrigatorios.total }} obrigatórios
+            <div class="mt-3 flex items-end justify-between gap-2 text-xs text-muted md:items-center">
+              <span class="min-w-0 leading-relaxed">
+                <span class="block md:inline">{{ sistema.resumo.essenciais.atendidos }}/{{ sistema.resumo.essenciais.total }} essenciais</span>
+                <span class="max-md:hidden"> · </span>
+                <span class="block md:inline">{{ sistema.resumo.obrigatorios.atendidos }}/{{ sistema.resumo.obrigatorios.total }} obrigatórios</span>
               </span>
               <button
                 type="button"
@@ -83,21 +99,45 @@
           </div>
         </article>
       } @empty {
-        <div class="card col-span-full flex flex-col items-center px-6 py-16 text-center">
-          <span class="grid size-12 place-items-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900 dark:text-brand-300"><app-icone nome="monitor" [tamanho]="22" /></span>
-          <h2 class="mt-4 text-lg font-semibold">Nenhum sistema cadastrado</h2>
-          <p class="mt-1 max-w-md text-sm text-muted">
-            Cadastre o sistema que será apresentado e, na tela seguinte, importe o CSV com os itens do edital.
-          </p>
-          <button type="button" class="btn btn-primary mt-6" (click)="criando.set(true)"><app-icone nome="mais" /> Novo sistema</button>
-        </div>
+        @if (somenteFavoritos()) {
+          <div class="card col-span-full flex flex-col items-center px-6 py-16 text-center">
+            <span class="grid size-12 place-items-center rounded-xl bg-rose-50 text-rose-500 dark:bg-rose-500/10 dark:text-rose-300"><app-icone nome="coracao" [tamanho]="22" /></span>
+            <h2 class="mt-4 text-lg font-semibold">Nenhum sistema favoritado</h2>
+            <p class="mt-1 max-w-md text-sm text-muted">
+              Na lista de sistemas, clique no coração no canto superior direito de um sistema para encontrá-lo aqui.
+            </p>
+            <a routerLink="/" class="btn btn-primary mt-6"><app-icone nome="monitor" /> Ver sistemas</a>
+          </div>
+        } @else {
+          <div class="card col-span-full flex flex-col items-center px-6 py-16 text-center">
+            <span class="grid size-12 place-items-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900 dark:text-brand-300"><app-icone nome="monitor" [tamanho]="22" /></span>
+            <h2 class="mt-4 text-lg font-semibold">Nenhum sistema cadastrado</h2>
+            <p class="mt-1 max-w-md text-sm text-muted">
+              Cadastre o sistema que será apresentado e, na tela seguinte, importe o CSV com os itens do edital.
+            </p>
+            <button type="button" class="btn btn-primary mt-6" (click)="criando.set(true)"><app-icone nome="mais" /> Novo sistema</button>
+          </div>
+        }
       }
     </div>
   }
 </main>
+
+<!-- Selo de situação: ao lado do coração a partir de md; abaixo do título no card compacto do celular. -->
+<ng-template #selo let-sistema>
+  @if (sistema.resumo.metaAtingida) {
+    <span class="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300">Meta atingida</span>
+  } @else if (sistema.resumo.totalItens === 0) {
+    <span class="shrink-0 rounded-full border border-line bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-muted dark:bg-surface-3">Sem itens</span>
+  } @else {
+    <span class="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">Em avaliação</span>
+  }
+</ng-template>
 
 <app-modal titulo="Novo sistema" [aberto]="criando()" (fechado)="criando.set(false)">
   @if (criando()) {
     <app-sistema-form [salvando]="salvando()" (salvar)="criar($event)" (cancelar)="criando.set(false)" />
   }
 </app-modal>
+
+<app-voltar-topo [alvo]="cabecalho" />

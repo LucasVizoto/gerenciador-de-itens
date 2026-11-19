@@ -1,6 +1,6 @@
 import { CdkDragHandle } from '@angular/cdk/drag-drop';
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
-import { STATUS, TIPOS } from '../../core/dominio';
+import { STATUS, TIPOS, rotuloItem } from '../../core/dominio';
 import type { Item, StatusItem, TipoItem } from '../../core/models';
 import { AutoFoco } from '../../shared/auto-foco';
 import { Icone } from '../../shared/icone';
@@ -43,7 +43,7 @@ const SELO: Partial<Record<TipoItem, string>> = {
   host: { class: 'block' },
   template: `
     <div
-      class="grid grid-cols-[auto_96px_minmax(0,1fr)] items-start gap-x-3 gap-y-3 border-t border-l-2 border-t-line px-4 py-4 transition-colors duration-700 sm:px-5 xl:grid-cols-[auto_104px_minmax(0,1fr)_auto]"
+      class="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2 border-t border-l-2 border-t-line px-3 py-3.5 transition-colors duration-700 sm:grid-cols-[auto_96px_minmax(0,1fr)] sm:gap-y-3 sm:px-5 sm:py-4 xl:grid-cols-[auto_104px_minmax(0,1fr)_auto]"
       [class]="classes()"
     >
       <div class="flex items-center gap-2 pt-0.5 print:hidden">
@@ -68,7 +68,7 @@ const SELO: Partial<Record<TipoItem, string>> = {
         </button>
       </div>
 
-      <div class="pt-0.5">
+      <div class="pt-0.5 max-sm:flex max-sm:flex-wrap max-sm:items-center">
         <div class="flex flex-wrap items-center gap-1.5">
           @if (posicao(); as p) {
             @if (editandoPosicao()) {
@@ -80,7 +80,9 @@ const SELO: Partial<Record<TipoItem, string>> = {
                 [attr.max]="totalGrupo() || null"
                 class="w-14 rounded border border-brand-500 bg-surface px-1 py-0.5 text-[11px] font-semibold text-ink tabular-nums focus:ring-2 focus:ring-brand-500/25 focus:outline-none"
                 [value]="p"
-                [attr.aria-label]="'Nova posição de ' + rotulo() + ' no grupo (1 a ' + totalGrupo() + ')'"
+                [attr.aria-label]="
+                  'Nova posição de ' + rotulo() + ' no grupo (1 a ' + totalGrupo() + ')'
+                "
                 (keydown.enter)="$event.preventDefault(); confirmarPosicao(campo.value)"
                 (keydown.escape)="$event.preventDefault(); editandoPosicao.set(false)"
                 (blur)="confirmarPosicao(campo.value)"
@@ -90,7 +92,14 @@ const SELO: Partial<Record<TipoItem, string>> = {
                 type="button"
                 class="min-w-6 rounded border border-line-strong bg-surface-2 px-1.5 py-0.5 text-[11px] font-semibold text-muted tabular-nums transition-colors hover:border-brand-500 hover:text-ink print:hidden"
                 [title]="'Posição ' + p + ' no grupo · clique para digitar outra'"
-                [attr.aria-label]="'Posição ' + p + ' de ' + totalGrupo() + ' no grupo. Alterar posição de ' + rotulo()"
+                [attr.aria-label]="
+                  'Posição ' +
+                  p +
+                  ' de ' +
+                  totalGrupo() +
+                  ' no grupo. Alterar posição de ' +
+                  rotulo()
+                "
                 (click)="editandoPosicao.set(true)"
               >
                 {{ p }}º
@@ -100,13 +109,16 @@ const SELO: Partial<Record<TipoItem, string>> = {
           <p class="text-xs font-bold tracking-wide whitespace-nowrap text-muted">{{ rotulo() }}</p>
         </div>
         @if (selo(); as classe) {
-          <span class="mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-medium" [class]="classe">
+          <span
+            class="mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-medium max-sm:mt-0 max-sm:ml-1.5"
+            [class]="classe"
+          >
             {{ tipos[item().tipo].rotulo }}
           </span>
         }
       </div>
 
-      <div class="min-w-0">
+      <div class="col-start-2 min-w-0 sm:col-start-auto">
         <p class="text-sm leading-relaxed text-ink-soft">{{ item().descricao }}</p>
         @if (item().observacao) {
           <p class="mt-2 flex items-start gap-1.5 text-xs leading-relaxed text-muted">
@@ -116,12 +128,18 @@ const SELO: Partial<Record<TipoItem, string>> = {
         }
       </div>
 
-      <div class="col-span-2 col-start-2 flex flex-wrap items-center gap-1.5 xl:col-span-1 xl:col-start-auto">
+      <div
+        class="col-start-2 flex flex-wrap items-center gap-1.5 sm:col-span-2 sm:col-start-2 xl:col-span-1 xl:col-start-auto"
+      >
         @for (opcao of opcoes; track opcao.status) {
           <button
             type="button"
-            class="status-btn rounded-lg border px-3 py-2 text-[13px] font-medium whitespace-nowrap transition-colors"
-            [class]="item().status === opcao.status ? opcao.ativo : 'border-line-strong bg-surface text-ink-soft hover:border-brand-500 hover:text-ink'"
+            class="status-btn flex-1 rounded-lg border px-3 py-2.5 text-[13px] font-medium whitespace-nowrap transition-colors sm:flex-none sm:py-2"
+            [class]="
+              item().status === opcao.status
+                ? opcao.ativo
+                : 'border-line-strong bg-surface text-ink-soft hover:border-brand-500 hover:text-ink'
+            "
             [attr.aria-pressed]="item().status === opcao.status"
             (click)="status.emit(opcao.status)"
           >
@@ -181,13 +199,14 @@ export class ItemLinha {
   protected readonly tipos = TIPOS;
   protected readonly selo = computed(() => SELO[this.item().tipo] ?? null);
   protected readonly classes = computed(() => {
-    const fundo = this.destaque() ? 'bg-brand-500/10' : this.selecionado() ? 'bg-brand-500/5' : 'bg-surface';
+    const fundo = this.destaque()
+      ? 'bg-brand-500/10'
+      : this.selecionado()
+        ? 'bg-brand-500/5'
+        : 'bg-surface';
     return `${BORDA[this.item().status]} ${fundo}`;
   });
-  protected readonly rotulo = computed(() => {
-    const { tipo, numero } = this.item();
-    return numero ? `${TIPOS[tipo].prefixo} ${numero}` : TIPOS[tipo].prefixo;
-  });
+  protected readonly rotulo = computed(() => rotuloItem(this.item().tipo, this.item().numero));
 
   protected confirmarPosicao(valor: string) {
     // Esc e Enter já saíram do modo de edição; o blur que vem em seguida não deve confirmar de novo.

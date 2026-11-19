@@ -1,40 +1,75 @@
 <div class="flex min-h-dvh flex-col">
-  <nav class="border-b border-line bg-surface/90 backdrop-blur print:hidden">
+  @if (auth.usuario(); as usuario) {
+  <nav class="relative border-b border-line bg-surface/90 backdrop-blur print:hidden">
     <div class="h-0.5 bg-linear-to-r from-brand-700 via-brand-500 to-brand-300"></div>
-    <div class="mx-auto flex h-14 max-w-7xl items-center gap-8 px-4 sm:px-6">
-      <a routerLink="/" class="flex items-center gap-2.5 font-semibold tracking-tight text-ink">
-        <span class="grid size-8 place-items-center rounded-lg bg-linear-to-br from-brand-500 to-brand-700 text-white shadow-md shadow-brand-600/30">
-          <app-icone nome="checklist" />
+    <div class="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:gap-8">
+      <a routerLink="/" class="flex min-w-0 items-center gap-2.5 font-semibold tracking-tight text-ink">
+        <span class="grid h-10 shrink-0 place-items-center rounded-lg bg-linear-to-br from-brand-500 to-brand-700 px-2.5 shadow-md shadow-brand-600/30">
+          <img src="/image.png" alt="Eddydata" class="h-8 w-auto" />
         </span>
-        <span>Conformidade <span class="font-normal text-brand-600 dark:text-brand-300">· Sistemas</span></span>
+        <span class="truncate">Conformidade <span class="hidden font-normal text-brand-600 min-[400px]:inline dark:text-brand-300">· Sistemas</span></span>
       </a>
 
-      <div class="flex gap-1 text-sm">
-        <a
-          routerLink="/"
-          routerLinkActive="bg-brand-50 text-brand-700! dark:bg-surface-3 dark:text-ink!"
-          [routerLinkActiveOptions]="{ exact: true }"
-          class="rounded-md px-3 py-1.5 font-medium text-muted transition-colors hover:text-ink"
-        >
-          Sistemas
-        </a>
+      <!-- Links: em linha a partir de md; abaixo disso ficam na pílula fixa no rodapé -->
+      <div class="hidden gap-1 text-sm md:flex">
+        @for (link of links(); track link.rota) {
+          <a
+            [routerLink]="link.rota"
+            [class]="ativo(link) ? 'bg-brand-50 text-brand-700! dark:bg-surface-3 dark:text-ink!' : ''"
+            [attr.aria-current]="ativo(link) ? 'page' : null"
+            class="rounded-md px-3 py-1.5 font-medium text-muted transition-colors hover:text-ink"
+          >
+            {{ link.rotulo }}
+          </a>
+        }
       </div>
 
-      <button
-        type="button"
-        class="btn btn-ghost ml-auto p-2 text-muted hover:text-ink"
-        aria-label="Alternar tema"
-        [title]="tema.escuro() ? 'Usar tema claro' : 'Usar tema escuro'"
-        (click)="tema.alternar()"
-      >
-        <app-icone [nome]="tema.escuro() ? 'sol' : 'lua'" [tamanho]="18" />
-      </button>
+      <div class="ml-auto flex shrink-0 items-center gap-1">
+        <span class="mr-2 hidden max-w-56 truncate text-sm text-muted lg:block" [title]="usuario.email">{{ usuario.nomeCompleto }}</span>
+        <button
+          type="button"
+          class="btn btn-ghost p-2 text-muted hover:text-ink"
+          aria-label="Alternar tema"
+          [title]="tema.escuro() ? 'Usar tema claro' : 'Usar tema escuro'"
+          (click)="tema.alternar()"
+        >
+          <app-icone [nome]="tema.escuro() ? 'sol' : 'lua'" [tamanho]="18" />
+        </button>
+        <button type="button" class="btn btn-ghost p-2 text-muted hover:text-ink" aria-label="Sair" title="Sair" (click)="sair()">
+          <app-icone nome="sair" [tamanho]="18" />
+        </button>
+      </div>
     </div>
   </nav>
 
-  <div class="flex-1">
+  <!-- Celular/tablet estreito: navegação em pílula de vidro fixa no rodapé -->
+  <nav
+    id="nav-pilula"
+    aria-label="Navegação principal"
+    class="pointer-events-none fixed inset-x-0 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 flex justify-center px-3 md:hidden print:hidden"
+  >
+    <div
+      class="pointer-events-auto flex w-full max-w-md items-center gap-1 rounded-full border border-white/70 bg-surface/65 p-1.5 shadow-xl shadow-brand-950/15 ring-1 ring-brand-950/5 backdrop-blur-xl backdrop-saturate-150 dark:border-white/10 dark:bg-surface-2/65 dark:shadow-black/50 dark:ring-black/20"
+    >
+      @for (link of links(); track link.rota) {
+        <a
+          [routerLink]="link.rota"
+          [class]="ativo(link) ? 'bg-brand-600 text-white! shadow-md shadow-brand-600/30 dark:bg-brand-500 dark:shadow-none' : ''"
+          [attr.aria-current]="ativo(link) ? 'page' : null"
+          class="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-full px-1 py-2 text-[11px] leading-none font-semibold text-muted transition-colors hover:text-ink active:scale-95"
+        >
+          <app-icone [nome]="link.icone" [tamanho]="19" />
+          <span class="max-w-full truncate leading-tight">{{ link.rotulo }}</span>
+        </a>
+      }
+    </div>
+  </nav>
+  }
+
+  <div class="flex-1 pb-(--nav-movel)">
     <router-outlet />
   </div>
 
   <app-toasts />
+  <app-confirmacao />
 </div>

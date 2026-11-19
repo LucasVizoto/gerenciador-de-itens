@@ -242,6 +242,36 @@
               >
                 {{ grupo.atendidos }}/{{ grupo.total }} atendidos
               </span>
+              @if (grupo.itens.length) {
+                @let gravando = marcandoGrupo() === grupo.id;
+                @let alcance = filtrando() ? 'os ' + grupo.itens.length + ' itens exibidos' : 'todos os itens';
+                <div class="flex shrink-0 items-center gap-1 print:hidden" role="group" [attr.aria-label]="'Marcar ' + alcance + ' de ' + grupo.titulo">
+                  <button
+                    type="button"
+                    class="grid size-7 place-items-center rounded-md border border-line-strong bg-surface text-[13px] text-emerald-700 transition-colors hover:border-emerald-500 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line-strong disabled:hover:bg-surface dark:text-emerald-300 dark:hover:bg-emerald-500/15"
+                    [disabled]="marcandoGrupo() !== null || grupoTodo(grupo, 'ATENDE')"
+                    [title]="'Marcar ' + alcance + ' do grupo como Atende'"
+                    [attr.aria-label]="'Marcar ' + alcance + ' de ' + grupo.titulo + ' como Atende'"
+                    (click)="marcarGrupo(grupo, 'ATENDE')"
+                  >
+                    @if (gravando) {
+                      <span class="spinner size-3"></span>
+                    } @else {
+                      <fa-icon [icon]="icones.atende" />
+                    }
+                  </button>
+                  <button
+                    type="button"
+                    class="grid size-7 place-items-center rounded-md border border-line-strong bg-surface text-[13px] text-rose-700 transition-colors hover:border-rose-500 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line-strong disabled:hover:bg-surface dark:text-rose-300 dark:hover:bg-rose-500/15"
+                    [disabled]="marcandoGrupo() !== null || grupoTodo(grupo, 'NAO_ATENDE')"
+                    [title]="'Marcar ' + alcance + ' do grupo como Não atende'"
+                    [attr.aria-label]="'Marcar ' + alcance + ' de ' + grupo.titulo + ' como Não atende'"
+                    (click)="marcarGrupo(grupo, 'NAO_ATENDE')"
+                  >
+                    <fa-icon [icon]="icones.naoAtende" />
+                  </button>
+                </div>
+              }
             </header>
 
             @if (!recolhido) {

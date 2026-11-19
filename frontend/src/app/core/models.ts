@@ -150,6 +150,7 @@ export interface EventoEdital {
     | 'item.atualizado'
     | 'item.removido'
     | 'itens.removidos'
+    | 'itens.status'
     | 'itens.reordenados'
     | 'itens.importados'
     | 'itens.reiniciados'

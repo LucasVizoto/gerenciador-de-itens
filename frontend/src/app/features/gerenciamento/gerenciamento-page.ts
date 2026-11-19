@@ -2,10 +2,12 @@ import { CdkDrag, CdkDropList, CdkDropListGroup, moveItemInArray, type CdkDragDr
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { Router, RouterLink } from '@angular/router';
-import { faClipboardCheck, faFileContract } from '@fortawesome/free-solid-svg-icons';
+import { FaIconComponent } from '@fortawesome/angular-fontawesome';
+import { faCheck, faClipboardCheck, faFileContract, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { ApiService, mensagemDeErro } from '../../core/api.service';
 import {
   ORDEM_TIPOS,
+  STATUS,
   calcularResumo,
   compararNumero,
   formatarData,
@@ -91,6 +93,7 @@ const CAMPOS_CSV: Record<string, string> = {
     ItemLinha,
     PainelMeta,
     TituloPagina,
+    FaIconComponent,
     VoltarTopo,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -134,7 +137,14 @@ export class GerenciamentoPage {
   protected readonly excluindoSelecao = signal(false);
 
   protected readonly formatarData = formatarData;
-  protected readonly icones = { edital: faFileContract, sistema: faClipboardCheck };
+  protected readonly icones = {
+    edital: faFileContract,
+    sistema: faClipboardCheck,
+    atende: faCheck,
+    naoAtende: faXmark,
+  };
+  /** Grupo cuja marcação em lote está sendo gravada. */
+  protected readonly marcandoGrupo = signal<string | null>(null);
   protected readonly camposCsv = CAMPOS_CSV;
 
   /** Garante que cliques rápidos no mesmo item cheguem à API na ordem em que foram feitos. */
@@ -330,6 +340,50 @@ export class GerenciamentoPage {
       this.toast.erro(`Não foi possível salvar a marcação: ${mensagemDeErro(erro)}`);
     } finally {
       if (ultima()) this.marcarSalvando(item.id, false);
+    }
+  }
+
+  /** Todos os itens visíveis do grupo já estão com este status (desabilita o botão do lote). */
+  protected grupoTodo(grupo: Grupo, status: StatusItem) {
+    return grupo.itens.every((i) => i.status === status);
+  }
+
+  /**
+   * Marca de uma vez os itens visíveis do grupo como Atende ou Não atende.
+   * Pede confirmação só quando vai sobrescrever itens que já tinham sido avaliados.
+   */
+  protected async marcarGrupo(grupo: Grupo, status: Exclude<StatusItem, 'PENDENTE'>) {
+    const alvo = grupo.itens.filter((i) => i.status !== status);
+    if (!alvo.length || this.marcandoGrupo()) return;
+
+    const rotulo = STATUS[status].rotulo;
+    const jaAvaliados = alvo.filter((i) => i.status !== 'PENDENTE').length;
+    if (
+      jaAvaliados &&
+      !confirm(
+        `Marcar ${plural(alvo.length, 'item', 'itens')} de "${grupo.titulo}" como ${rotulo}? ` +
+          `${plural(jaAvaliados, 'item já avaliado terá', 'itens já avaliados terão')} a marcação trocada.`,
+      )
+    ) {
+      return;
+    }
+
+    const anteriores = new Map(alvo.map((i) => [i.id, i.status]));
+    // Invalida marcações individuais em andamento desses itens: o lote é a mais recente.
+    for (const id of anteriores.keys()) this.versaoPorItem.set(id, (this.versaoPorItem.get(id) ?? 0) + 1);
+
+    this.marcandoGrupo.set(grupo.id);
+    this.itens.update((lista) => lista.map((i) => (anteriores.has(i.id) ? { ...i, status } : i)));
+    try {
+      await this.api.marcarItens(this.id(), [...anteriores.keys()], status);
+      this.toast.sucesso(`${plural(alvo.length, 'item marcado', 'itens marcados')} como ${rotulo} em "${grupo.titulo}".`);
+    } catch (erro) {
+      this.itens.update((lista) =>
+        lista.map((i) => (anteriores.has(i.id) && i.status === status ? { ...i, status: anteriores.get(i.id)! } : i)),
+      );
+      this.toast.erro(`Não foi possível marcar o grupo: ${mensagemDeErro(erro)}`);
+    } finally {
+      this.marcandoGrupo.set(null);
     }
   }
 
@@ -668,6 +722,13 @@ export class GerenciamentoPage {
       case 'itens.removidos': {
         const ids = new Set((evento.dados as { ids: string[] }).ids);
         this.itens.update((lista) => lista.filter((i) => !ids.has(i.id)));
+        break;
+      }
+      case 'itens.status': {
+        const { ids, status } = evento.dados as { ids: string[]; status: StatusItem };
+        const alterados = new Set(ids);
+        this.itens.update((lista) => lista.map((i) => (alterados.has(i.id) ? { ...i, status } : i)));
+        ids.forEach((id) => this.destacar(id));
         break;
       }
       case 'itens.reordenados':

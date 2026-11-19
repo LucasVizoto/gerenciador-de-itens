@@ -44,6 +44,11 @@ const corpoExclusao = z.object({
   ids: z.array(z.uuid('Item inválido')).min(1, 'Selecione ao menos um item').max(5_000),
 });
 
+const corpoStatusLote = z.object({
+  ids: z.array(z.uuid('Item inválido')).min(1, 'Informe ao menos um item').max(5_000),
+  status: z.enum(StatusItem),
+});
+
 export async function itensRoutes(app: FastifyInstance) {
   app.post('/sistemas/:sistemaId/itens', async (request, reply) => {
     const { sistemaId } = parametroSistemaId.parse(request.params);
@@ -99,6 +104,23 @@ export async function itensRoutes(app: FastifyInstance) {
 
     publicar(sistemaId, { tipo: 'itens.removidos', dados: { ids: idsRemovidos }, origem: origemDa(request) });
     return { removidos: idsRemovidos.length };
+  });
+
+  /** Marca vários itens de uma vez (ex.: todo um grupo como Atende); ignora ids de outros sistemas. */
+  app.post('/sistemas/:sistemaId/itens/status', async (request) => {
+    const { sistemaId } = parametroSistemaId.parse(request.params);
+    const { ids, status } = corpoStatusLote.parse(request.body);
+    await garantirSistema(sistemaId);
+
+    const encontrados = await prisma.item.findMany({
+      where: { sistemaId, id: { in: [...new Set(ids)] } },
+      select: { id: true },
+    });
+    const idsAtualizados = encontrados.map((item) => item.id);
+    await prisma.item.updateMany({ where: { sistemaId, id: { in: idsAtualizados } }, data: { status } });
+
+    publicar(sistemaId, { tipo: 'itens.status', dados: { ids: idsAtualizados, status }, origem: origemDa(request) });
+    return { atualizados: idsAtualizados.length };
   });
 
   /** Recebe a nova posição (e etapa) dos itens afetados por um arrastar-e-soltar. */

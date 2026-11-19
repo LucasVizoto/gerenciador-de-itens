@@ -12,6 +12,7 @@ import type {
   SistemaComResumo,
   SistemaDashboard,
   SistemaDetalhe,
+  StatusItem,
   Usuario,
 } from './models';
 
@@ -108,7 +109,16 @@ export class ApiService {
   }
 
   removerItens(sistemaId: string, ids: string[]) {
-    return this.enviar(this.http.post<{ removidos: number }>(`${API}/sistemas/${sistemaId}/itens/excluir`, { ids }));
+    return this.enviar(
+      this.http.post<{ removidos: number }>(`${API}/sistemas/${sistemaId}/itens/excluir`, { ids }),
+    );
+  }
+
+  /** Marca vários itens de uma vez (ex.: todos os itens de um grupo). */
+  marcarItens(sistemaId: string, ids: string[], status: StatusItem) {
+    return this.enviar(
+      this.http.post<{ atualizados: number }>(`${API}/sistemas/${sistemaId}/itens/status`, { ids, status }),
+    );
   }
 
   reordenarItens(sistemaId: string, itens: PosicaoItem[]) {

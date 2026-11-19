@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { faChartPie, faShieldHalved } from '@fortawesome/free-solid-svg-icons';
@@ -43,6 +43,17 @@ export class DashboardPage implements OnInit {
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
   private readonly tema = inject(TemaService);
+
+  /** Celular (abaixo de sm): nomes das categorias mais estreitos para sobrar espaço às barras. */
+  private readonly telaEstreita = signal(window.matchMedia('(max-width: 639px)').matches);
+  protected readonly larguraRotulo = computed(() => (this.telaEstreita() ? 96 : 180));
+
+  constructor() {
+    const consulta = window.matchMedia('(max-width: 639px)');
+    const aoMudar = (evento: MediaQueryListEvent) => this.telaEstreita.set(evento.matches);
+    consulta.addEventListener('change', aoMudar);
+    inject(DestroyRef).onDestroy(() => consulta.removeEventListener('change', aoMudar));
+  }
 
   protected readonly sistemas = signal<SistemaDashboard[]>([]);
   protected readonly carregando = signal(true);
@@ -199,6 +210,7 @@ export class DashboardPage implements OnInit {
       xAxis: {
         type: 'value',
         max: percentual ? 100 : undefined,
+        splitNumber: this.telaEstreita() ? 2 : 5,
         axisLabel: { color: c.apagado, formatter: percentual ? '{value}%' : '{value}' },
         splitLine: { lineStyle: { color: c.linha } },
       },
@@ -206,7 +218,7 @@ export class DashboardPage implements OnInit {
         type: 'category',
         inverse: true,
         data: lista.map((l) => nomeCompleto(l.sistema)),
-        axisLabel: { color: c.tintaSuave, width: 180, overflow: 'truncate' },
+        axisLabel: { color: c.tintaSuave, width: this.larguraRotulo(), overflow: 'truncate' },
         axisLine: { lineStyle: { color: c.linha } },
         axisTick: { show: false },
       },
@@ -348,6 +360,7 @@ export class DashboardPage implements OnInit {
       xAxis: {
         type: 'value',
         max: 100,
+        splitNumber: this.telaEstreita() ? 2 : 5,
         axisLabel: { color: c.apagado, formatter: '{value}%' },
         splitLine: { lineStyle: { color: c.linha } },
       },
@@ -355,7 +368,7 @@ export class DashboardPage implements OnInit {
         type: 'category',
         inverse: true,
         data: lista.map((l) => nomeCompleto(l.sistema)),
-        axisLabel: { color: c.tintaSuave, width: 180, overflow: 'truncate' },
+        axisLabel: { color: c.tintaSuave, width: this.larguraRotulo(), overflow: 'truncate' },
         axisLine: { lineStyle: { color: c.linha } },
         axisTick: { show: false },
       },
@@ -433,6 +446,7 @@ export class DashboardPage implements OnInit {
       xAxis: {
         type: 'value',
         max: 100,
+        splitNumber: this.telaEstreita() ? 2 : 5,
         axisLabel: { color: c.apagado, formatter: '{value}%' },
         splitLine: { lineStyle: { color: c.linha } },
       },
@@ -440,7 +454,7 @@ export class DashboardPage implements OnInit {
         type: 'category',
         inverse: true,
         data: etapas.map((e) => e.nome),
-        axisLabel: { color: c.tintaSuave, width: 200, overflow: 'truncate' },
+        axisLabel: { color: c.tintaSuave, width: this.larguraRotulo() + 20, overflow: 'truncate' },
         axisLine: { lineStyle: { color: c.linha } },
         axisTick: { show: false },
       },

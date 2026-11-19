@@ -276,7 +276,7 @@
           <table class="w-full min-w-200 text-sm">
             <thead class="border-y border-line bg-surface-2 text-left text-xs tracking-wide text-muted uppercase">
               <tr>
-                <th class="px-5 py-2.5 font-medium">Sistema</th>
+                <th class="sticky left-0 z-10 bg-surface-2 px-5 py-2.5 font-medium max-sm:px-4 sm:static">Sistema</th>
                 <th class="px-3 py-2.5 font-medium">Órgão</th>
                 <th class="px-3 py-2.5 text-right font-medium">Itens</th>
                 <th class="px-3 py-2.5 text-right font-medium">Atende</th>
@@ -294,7 +294,7 @@
                   [class]="idDestaque() === l.sistema.id ? 'bg-brand-50 dark:bg-surface-3' : ''"
                   (click)="selecionar(l.sistema.id)"
                 >
-                  <td class="max-w-64 truncate px-5 py-2.5 font-medium">
+                  <td class="sticky left-0 z-10 max-w-64 truncate bg-surface px-5 py-2.5 font-medium max-sm:max-w-40 max-sm:px-4 max-sm:shadow-[6px_0_8px_-6px_rgb(0_0_0/0.25)] sm:static sm:bg-transparent">
                     <a class="hover:text-brand-600 hover:underline dark:hover:text-brand-300" [routerLink]="['/sistemas', l.sistema.id]" (click)="$event.stopPropagation()">{{ nomeCompleto(l.sistema) }}</a>
                   </td>
                   <td class="max-w-48 truncate px-3 py-2.5 text-muted">{{ l.sistema.orgao || '—' }}</td>

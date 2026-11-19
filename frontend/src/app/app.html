@@ -1,51 +1,31 @@
 <div class="flex min-h-dvh flex-col">
   @if (auth.usuario(); as usuario) {
-  <nav class="border-b border-line bg-surface/90 backdrop-blur print:hidden">
+  <nav class="relative border-b border-line bg-surface/90 backdrop-blur print:hidden" (keydown.escape)="menuAberto.set(false)">
     <div class="h-0.5 bg-linear-to-r from-brand-700 via-brand-500 to-brand-300"></div>
-    <div class="mx-auto flex h-14 max-w-7xl items-center gap-8 px-4 sm:px-6">
-      <a routerLink="/" class="flex items-center gap-2.5 font-semibold tracking-tight text-ink">
-        <span class="grid h-10 place-items-center rounded-lg bg-linear-to-br from-brand-500 to-brand-700 px-2.5 shadow-md shadow-brand-600/30">
+    <div class="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:gap-8">
+      <a routerLink="/" class="flex min-w-0 items-center gap-2.5 font-semibold tracking-tight text-ink">
+        <span class="grid h-10 shrink-0 place-items-center rounded-lg bg-linear-to-br from-brand-500 to-brand-700 px-2.5 shadow-md shadow-brand-600/30">
           <img src="/image.png" alt="Eddydata" class="h-8 w-auto" />
         </span>
-        <span>Conformidade <span class="font-normal text-brand-600 dark:text-brand-300">· Sistemas</span></span>
+        <span class="truncate">Conformidade <span class="hidden font-normal text-brand-600 min-[400px]:inline dark:text-brand-300">· Sistemas</span></span>
       </a>
 
-      <div class="flex gap-1 text-sm">
-        <a
-          routerLink="/"
-          routerLinkActive="bg-brand-50 text-brand-700! dark:bg-surface-3 dark:text-ink!"
-          [routerLinkActiveOptions]="{ exact: true }"
-          class="rounded-md px-3 py-1.5 font-medium text-muted transition-colors hover:text-ink"
-        >
-          Sistemas
-        </a>
-        <a
-          routerLink="/dashboard"
-          routerLinkActive="bg-brand-50 text-brand-700! dark:bg-surface-3 dark:text-ink!"
-          class="rounded-md px-3 py-1.5 font-medium text-muted transition-colors hover:text-ink"
-        >
-          Dashboard
-        </a>
-        <a
-          routerLink="/favoritos"
-          routerLinkActive="bg-brand-50 text-brand-700! dark:bg-surface-3 dark:text-ink!"
-          class="rounded-md px-3 py-1.5 font-medium text-muted transition-colors hover:text-ink"
-        >
-          Favoritos
-        </a>
-        @if (usuario.administrador) {
+      <!-- Links: em linha a partir de md; abaixo disso ficam no menu recolhível -->
+      <div class="hidden gap-1 text-sm md:flex">
+        @for (link of links(); track link.rota) {
           <a
-            routerLink="/usuarios"
+            [routerLink]="link.rota"
             routerLinkActive="bg-brand-50 text-brand-700! dark:bg-surface-3 dark:text-ink!"
+            [routerLinkActiveOptions]="{ exact: link.exato }"
             class="rounded-md px-3 py-1.5 font-medium text-muted transition-colors hover:text-ink"
           >
-            Usuários
+            {{ link.rotulo }}
           </a>
         }
       </div>
 
-      <div class="ml-auto flex items-center gap-1">
-        <span class="mr-2 hidden max-w-56 truncate text-sm text-muted sm:block" [title]="usuario.email">{{ usuario.nomeCompleto }}</span>
+      <div class="ml-auto flex shrink-0 items-center gap-1">
+        <span class="mr-2 hidden max-w-56 truncate text-sm text-muted lg:block" [title]="usuario.email">{{ usuario.nomeCompleto }}</span>
         <button
           type="button"
           class="btn btn-ghost p-2 text-muted hover:text-ink"
@@ -55,11 +35,57 @@
         >
           <app-icone [nome]="tema.escuro() ? 'sol' : 'lua'" [tamanho]="18" />
         </button>
-        <button type="button" class="btn btn-ghost p-2 text-muted hover:text-ink" aria-label="Sair" title="Sair" (click)="sair()">
+        <button type="button" class="btn btn-ghost hidden p-2 text-muted hover:text-ink md:inline-flex" aria-label="Sair" title="Sair" (click)="sair()">
           <app-icone nome="sair" [tamanho]="18" />
+        </button>
+        <button
+          type="button"
+          class="btn btn-ghost p-2 text-muted hover:text-ink md:hidden"
+          aria-controls="menu-movel"
+          [attr.aria-expanded]="menuAberto()"
+          [attr.aria-label]="menuAberto() ? 'Fechar menu' : 'Abrir menu'"
+          (click)="menuAberto.set(!menuAberto())"
+        >
+          @if (menuAberto()) {
+            <app-icone nome="fechar" [tamanho]="20" />
+          } @else {
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          }
         </button>
       </div>
     </div>
+
+    @if (menuAberto()) {
+      <div id="menu-movel" class="absolute inset-x-0 top-full z-40 border-b border-line bg-surface shadow-xl shadow-brand-950/10 md:hidden dark:shadow-black/50">
+        <div class="mx-auto max-w-7xl px-4 py-3">
+          <p class="truncate px-3 pb-2 text-xs text-muted">
+            <span class="font-semibold text-ink-soft">{{ usuario.nomeCompleto }}</span> · {{ usuario.email }}
+          </p>
+          <div class="grid gap-1 text-[15px]">
+            @for (link of links(); track link.rota) {
+              <a
+                [routerLink]="link.rota"
+                routerLinkActive="bg-brand-50 text-brand-700! dark:bg-surface-3 dark:text-ink!"
+                [routerLinkActiveOptions]="{ exact: link.exato }"
+                class="rounded-lg px-3 py-2.5 font-medium text-ink-soft transition-colors hover:bg-surface-2"
+                (click)="menuAberto.set(false)"
+              >
+                {{ link.rotulo }}
+              </a>
+            }
+            <button
+              type="button"
+              class="flex items-center gap-2 rounded-lg px-3 py-2.5 text-left font-medium text-rose-700 transition-colors hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10"
+              (click)="menuAberto.set(false); sair()"
+            >
+              <app-icone nome="sair" [tamanho]="18" /> Sair
+            </button>
+          </div>
+        </div>
+      </div>
+    }
   </nav>
   }
 

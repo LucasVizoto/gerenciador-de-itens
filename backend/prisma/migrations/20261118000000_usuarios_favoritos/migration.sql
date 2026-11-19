@@ -55,7 +55,6 @@ ALTER TABLE "usuario_favoritos" ADD CONSTRAINT "usuario_favoritos_usuario_id_fke
 -- AddForeignKey
 ALTER TABLE "usuario_favoritos" ADD CONSTRAINT "usuario_favoritos_sistema_id_fkey" FOREIGN KEY ("sistema_id") REFERENCES "sistemas"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- Seed: administrador inicial (senha 123456, hash scrypt gerado por src/lib/senha.ts).
 -- Troque a senha em produção.
 INSERT INTO "usuarios" ("id", "email", "senha_hash", "nome_completo", "ativo", "administrador", "atualizado_em")
 VALUES (

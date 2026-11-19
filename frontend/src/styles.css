@@ -52,6 +52,14 @@
 @layer base {
   :root {
     color-scheme: light;
+    /* Espaço reservado no rodapé pela pílula de navegação do celular (0 quando ela não existe). */
+    --nav-movel: 0px;
+  }
+
+  @media (width < 48rem) {
+    :root:has(#nav-pilula) {
+      --nav-movel: calc(5.25rem + env(safe-area-inset-bottom));
+    }
   }
 
   @media screen {

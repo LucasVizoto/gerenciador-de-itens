@@ -1,7 +1,9 @@
 import { ChangeDetectionStrategy, Component, OnInit, booleanAttribute, inject, input, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { faHeart, faLayerGroup, faShieldHalved } from '@fortawesome/free-solid-svg-icons';
 import { ApiService, mensagemDeErro } from '../../core/api.service';
+import { ConfirmacaoService } from '../../core/confirmacao.service';
 import { formatarData, formatarPercentual } from '../../core/dominio';
 import type { DadosSistema, SistemaComResumo } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
@@ -13,13 +15,14 @@ import { SistemaForm } from './sistema-form';
 
 @Component({
   selector: 'app-sistemas-page',
-  imports: [RouterLink, Icone, Modal, SistemaForm, TituloPagina, VoltarTopo],
+  imports: [RouterLink, NgTemplateOutlet, Icone, Modal, SistemaForm, TituloPagina, VoltarTopo],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './sistemas-page.html',
 })
 export class SistemasPage implements OnInit {
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
+  private readonly confirmacao = inject(ConfirmacaoService);
   private readonly router = inject(Router);
 
   /** Página Favoritos: vem do `data` da rota. */
@@ -81,9 +84,12 @@ export class SistemasPage implements OnInit {
   protected async remover(sistema: SistemaComResumo, evento: Event) {
     evento.preventDefault();
     evento.stopPropagation();
-    if (!confirm(`Excluir o sistema "${sistema.nome}" com todas as etapas e itens? Esta ação não pode ser desfeita.`)) {
-      return;
-    }
+    const confirmado = await this.confirmacao.confirmar({
+      titulo: 'Excluir sistema',
+      mensagem: `O sistema "${sistema.nome}" será excluído com todas as etapas e itens. Esta ação não pode ser desfeita.`,
+      confirmar: 'Excluir sistema',
+    });
+    if (!confirmado) return;
     try {
       await this.api.removerSistema(sistema.id);
       this.sistemas.update((lista) => lista.filter((item) => item.id !== sistema.id));

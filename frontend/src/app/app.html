@@ -1,6 +1,6 @@
 <div class="flex min-h-dvh flex-col">
   @if (auth.usuario(); as usuario) {
-  <nav class="relative border-b border-line bg-surface/90 backdrop-blur print:hidden" (keydown.escape)="menuAberto.set(false)">
+  <nav class="relative border-b border-line bg-surface/90 backdrop-blur print:hidden">
     <div class="h-0.5 bg-linear-to-r from-brand-700 via-brand-500 to-brand-300"></div>
     <div class="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:gap-8">
       <a routerLink="/" class="flex min-w-0 items-center gap-2.5 font-semibold tracking-tight text-ink">
@@ -10,13 +10,13 @@
         <span class="truncate">Conformidade <span class="hidden font-normal text-brand-600 min-[400px]:inline dark:text-brand-300">· Sistemas</span></span>
       </a>
 
-      <!-- Links: em linha a partir de md; abaixo disso ficam no menu recolhível -->
+      <!-- Links: em linha a partir de md; abaixo disso ficam na pílula fixa no rodapé -->
       <div class="hidden gap-1 text-sm md:flex">
         @for (link of links(); track link.rota) {
           <a
             [routerLink]="link.rota"
-            routerLinkActive="bg-brand-50 text-brand-700! dark:bg-surface-3 dark:text-ink!"
-            [routerLinkActiveOptions]="{ exact: link.exato }"
+            [class]="ativo(link) ? 'bg-brand-50 text-brand-700! dark:bg-surface-3 dark:text-ink!' : ''"
+            [attr.aria-current]="ativo(link) ? 'page' : null"
             class="rounded-md px-3 py-1.5 font-medium text-muted transition-colors hover:text-ink"
           >
             {{ link.rotulo }}
@@ -35,63 +35,41 @@
         >
           <app-icone [nome]="tema.escuro() ? 'sol' : 'lua'" [tamanho]="18" />
         </button>
-        <button type="button" class="btn btn-ghost hidden p-2 text-muted hover:text-ink md:inline-flex" aria-label="Sair" title="Sair" (click)="sair()">
+        <button type="button" class="btn btn-ghost p-2 text-muted hover:text-ink" aria-label="Sair" title="Sair" (click)="sair()">
           <app-icone nome="sair" [tamanho]="18" />
-        </button>
-        <button
-          type="button"
-          class="btn btn-ghost p-2 text-muted hover:text-ink md:hidden"
-          aria-controls="menu-movel"
-          [attr.aria-expanded]="menuAberto()"
-          [attr.aria-label]="menuAberto() ? 'Fechar menu' : 'Abrir menu'"
-          (click)="menuAberto.set(!menuAberto())"
-        >
-          @if (menuAberto()) {
-            <app-icone nome="fechar" [tamanho]="20" />
-          } @else {
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-              <path d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          }
         </button>
       </div>
     </div>
+  </nav>
 
-    @if (menuAberto()) {
-      <div id="menu-movel" class="absolute inset-x-0 top-full z-40 border-b border-line bg-surface shadow-xl shadow-brand-950/10 md:hidden dark:shadow-black/50">
-        <div class="mx-auto max-w-7xl px-4 py-3">
-          <p class="truncate px-3 pb-2 text-xs text-muted">
-            <span class="font-semibold text-ink-soft">{{ usuario.nomeCompleto }}</span> · {{ usuario.email }}
-          </p>
-          <div class="grid gap-1 text-[15px]">
-            @for (link of links(); track link.rota) {
-              <a
-                [routerLink]="link.rota"
-                routerLinkActive="bg-brand-50 text-brand-700! dark:bg-surface-3 dark:text-ink!"
-                [routerLinkActiveOptions]="{ exact: link.exato }"
-                class="rounded-lg px-3 py-2.5 font-medium text-ink-soft transition-colors hover:bg-surface-2"
-                (click)="menuAberto.set(false)"
-              >
-                {{ link.rotulo }}
-              </a>
-            }
-            <button
-              type="button"
-              class="flex items-center gap-2 rounded-lg px-3 py-2.5 text-left font-medium text-rose-700 transition-colors hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10"
-              (click)="menuAberto.set(false); sair()"
-            >
-              <app-icone nome="sair" [tamanho]="18" /> Sair
-            </button>
-          </div>
-        </div>
-      </div>
-    }
+  <!-- Celular/tablet estreito: navegação em pílula de vidro fixa no rodapé -->
+  <nav
+    id="nav-pilula"
+    aria-label="Navegação principal"
+    class="pointer-events-none fixed inset-x-0 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 flex justify-center px-3 md:hidden print:hidden"
+  >
+    <div
+      class="pointer-events-auto flex w-full max-w-md items-center gap-1 rounded-full border border-white/70 bg-surface/65 p-1.5 shadow-xl shadow-brand-950/15 ring-1 ring-brand-950/5 backdrop-blur-xl backdrop-saturate-150 dark:border-white/10 dark:bg-surface-2/65 dark:shadow-black/50 dark:ring-black/20"
+    >
+      @for (link of links(); track link.rota) {
+        <a
+          [routerLink]="link.rota"
+          [class]="ativo(link) ? 'bg-brand-600 text-white! shadow-md shadow-brand-600/30 dark:bg-brand-500 dark:shadow-none' : ''"
+          [attr.aria-current]="ativo(link) ? 'page' : null"
+          class="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-full px-1 py-2 text-[11px] leading-none font-semibold text-muted transition-colors hover:text-ink active:scale-95"
+        >
+          <app-icone [nome]="link.icone" [tamanho]="19" />
+          <span class="max-w-full truncate leading-tight">{{ link.rotulo }}</span>
+        </a>
+      }
+    </div>
   </nav>
   }
 
-  <div class="flex-1">
+  <div class="flex-1 pb-(--nav-movel)">
     <router-outlet />
   </div>
 
   <app-toasts />
+  <app-confirmacao />
 </div>

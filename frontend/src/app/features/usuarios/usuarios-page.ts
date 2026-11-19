@@ -9,6 +9,7 @@ import {
 import { NgTemplateOutlet } from '@angular/common';
 import { faUserGear, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { ApiService, mensagemDeErro } from '../../core/api.service';
+import { ConfirmacaoService } from '../../core/confirmacao.service';
 import { AuthService } from '../../core/auth.service';
 import type { Usuario } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
@@ -310,6 +311,7 @@ export class UsuariosPage implements OnInit {
   protected readonly icones = { administracao: faUserGear, usuarios: faUsers };
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
+  private readonly confirmacao = inject(ConfirmacaoService);
   protected readonly auth = inject(AuthService);
 
   protected readonly campos: CampoChave[] = ['ativo', 'administrador'];
@@ -386,9 +388,12 @@ export class UsuariosPage implements OnInit {
   }
 
   protected async remover(usuario: Usuario) {
-    if (!confirm(`Excluir o usuário "${usuario.nomeCompleto}" (${usuario.email})? Esta ação não pode ser desfeita.`)) {
-      return;
-    }
+    const confirmado = await this.confirmacao.confirmar({
+      titulo: 'Excluir usuário',
+      mensagem: `${usuario.nomeCompleto} (${usuario.email}) perderá o acesso e será excluído. Esta ação não pode ser desfeita.`,
+      confirmar: 'Excluir usuário',
+    });
+    if (!confirmado) return;
     try {
       await this.api.removerUsuario(usuario.id);
       this.usuarios.update((lista) => lista.filter((u) => u.id !== usuario.id));

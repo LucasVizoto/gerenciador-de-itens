@@ -15,7 +15,7 @@ const ESTILOS: Record<TipoToast, string> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div
-      class="pointer-events-none fixed right-4 bottom-4 z-50 flex w-[min(400px,calc(100vw-2rem))] flex-col gap-2 print:hidden"
+      class="pointer-events-none fixed right-4 bottom-[calc(var(--nav-movel)+1rem)] z-50 flex w-[min(400px,calc(100vw-2rem))] flex-col gap-2 print:hidden"
       aria-live="polite"
     >
       @for (toast of servico.toasts(); track toast.id) {

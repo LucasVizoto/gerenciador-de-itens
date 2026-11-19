@@ -20,6 +20,7 @@ import { Router, RouterLink } from '@angular/router';
 import { FaIconComponent } from '@fortawesome/angular-fontawesome';
 import { faCheck, faClipboardCheck, faFileContract, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { ApiService, mensagemDeErro } from '../../core/api.service';
+import { ConfirmacaoService } from '../../core/confirmacao.service';
 import {
   ORDEM_TIPOS,
   STATUS,
@@ -123,6 +124,7 @@ export class GerenciamentoPage {
   private readonly api = inject(ApiService);
   private readonly realtime = inject(RealtimeService);
   private readonly toast = inject(ToastService);
+  private readonly confirmacao = inject(ConfirmacaoService);
   private readonly router = inject(Router);
   private readonly title = inject(Title);
 
@@ -407,10 +409,15 @@ export class GerenciamentoPage {
     const jaAvaliados = alvo.filter((i) => i.status !== 'PENDENTE').length;
     if (
       jaAvaliados &&
-      !confirm(
-        `Marcar ${plural(alvo.length, 'item', 'itens')} de "${grupo.titulo}" como ${rotulo}? ` +
+      !(await this.confirmacao.confirmar({
+        titulo: `Marcar grupo como ${rotulo}`,
+        mensagem:
+          `${plural(alvo.length, 'item', 'itens')} de "${grupo.titulo}" ` +
+          `${alvo.length === 1 ? 'será marcado' : 'serão marcados'} como ${rotulo}. ` +
           `${plural(jaAvaliados, 'item já avaliado terá', 'itens já avaliados terão')} a marcação trocada.`,
-      )
+        confirmar: `Marcar como ${rotulo}`,
+        tom: 'atencao',
+      }))
     ) {
       return;
     }
@@ -608,8 +615,12 @@ export class GerenciamentoPage {
   protected async excluirSelecao() {
     const ids = [...this.selecionados()];
     if (!ids.length || this.excluindoSelecao()) return;
-    const quantidade = plural(ids.length, 'item selecionado', 'itens selecionados');
-    if (!confirm(`Excluir ${quantidade}? Esta ação não pode ser desfeita.`)) return;
+    const confirmado = await this.confirmacao.confirmar({
+      titulo: 'Excluir itens selecionados',
+      mensagem: `${plural(ids.length, 'item selecionado será excluído', 'itens selecionados serão excluídos')}. Esta ação não pode ser desfeita.`,
+      confirmar: 'Excluir',
+    });
+    if (!confirmado) return;
 
     this.excluindoSelecao.set(true);
     try {
@@ -680,8 +691,15 @@ export class GerenciamentoPage {
 
   protected async removerEtapa(categoria: Categoria) {
     const quantidade = this.itens().filter((i) => i.categoriaId === categoria.id).length;
-    const aviso = quantidade ? ` ${plural(quantidade, 'item dele ficará', 'itens dele ficarão')} em "Sem grupo".` : '';
-    if (!confirm(`Excluir o grupo "${categoria.nome}"?${aviso}`)) return;
+    const aviso = quantidade
+      ? ` ${plural(quantidade, 'item dele ficará', 'itens dele ficarão')} em "Sem grupo".`
+      : '';
+    const confirmado = await this.confirmacao.confirmar({
+      titulo: 'Excluir grupo',
+      mensagem: `O grupo "${categoria.nome}" será excluído.${aviso}`,
+      confirmar: 'Excluir grupo',
+    });
+    if (!confirmado) return;
     try {
       await this.api.removerCategoria(categoria.id);
       this.categorias.update((lista) => lista.filter((c) => c.id !== categoria.id));
@@ -725,7 +743,13 @@ export class GerenciamentoPage {
 
   protected async removerItemEmEdicao() {
     const alvo = this.itemEmEdicao();
-    if (!alvo || alvo === 'novo' || !confirm('Excluir este item do sistema?')) return;
+    if (!alvo || alvo === 'novo') return;
+    const confirmado = await this.confirmacao.confirmar({
+      titulo: 'Excluir item',
+      mensagem: 'Este item será excluído do sistema. Esta ação não pode ser desfeita.',
+      confirmar: 'Excluir item',
+    });
+    if (!confirmado) return;
     try {
       await this.api.removerItem(alvo.id);
       this.itens.update((lista) => lista.filter((i) => i.id !== alvo.id));
@@ -761,7 +785,13 @@ export class GerenciamentoPage {
   }
 
   protected async reiniciar() {
-    if (!confirm('Limpar todas as marcações desta avaliação? Todos os itens voltam para Pendente.')) return;
+    const confirmado = await this.confirmacao.confirmar({
+      titulo: 'Reiniciar avaliação',
+      mensagem: 'Todas as marcações desta avaliação serão limpas e os itens voltam para Pendente.',
+      confirmar: 'Limpar marcações',
+      icone: 'reiniciar',
+    });
+    if (!confirmado) return;
     const anterior = this.itens();
     this.itens.update((lista) => lista.map((i) => ({ ...i, status: 'PENDENTE' as const })));
     try {

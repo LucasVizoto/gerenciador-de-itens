@@ -27,13 +27,16 @@ import { Icone } from './icone';
 export class VoltarTopo {
   /** Elemento observado; o botão aparece quando ele deixa de estar visível. */
   readonly alvo = input.required<HTMLElement>();
-  /** Sobe o botão quando há outra barra fixa no rodapé (ex.: ações da seleção de itens). */
+  /**
+   * Sobe o botão quando há outra barra fixa no rodapé (ex.: ações da seleção de itens).
+   * No celular essa barra ocupa a largura toda e cresce em várias linhas, então o botão some.
+   */
   readonly elevado = input(false);
 
   protected readonly visivel = signal(false);
   protected readonly estado = computed(
     () =>
-      `${this.elevado() ? 'bottom-40 sm:bottom-28' : 'bottom-5 sm:bottom-6'} ` +
+      `${this.elevado() ? 'bottom-[calc(var(--nav-movel)+10rem)] max-sm:pointer-events-none max-sm:opacity-0 sm:bottom-[calc(var(--nav-movel)+7rem)]' : 'bottom-[calc(var(--nav-movel)+1.25rem)] sm:bottom-[calc(var(--nav-movel)+1.5rem)]'} ` +
       (this.visivel() ? 'translate-y-0 scale-100 opacity-100' : 'pointer-events-none translate-y-3 scale-90 opacity-0'),
   );
 

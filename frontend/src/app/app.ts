@@ -38,6 +38,7 @@ export class App {
   /** Usados na barra do topo (md+) e na pílula do rodapé (celular, com ícone). */
   protected readonly links = computed((): LinkNav[] => [
     { rota: '/', rotulo: 'Sistemas', icone: 'monitor', tambem: ['/sistemas'] },
+    { rota: '/agenda', rotulo: 'Agenda', icone: 'calendario' },
     { rota: '/dashboard', rotulo: 'Dashboard', icone: 'grafico' },
     { rota: '/favoritos', rotulo: 'Favoritos', icone: 'coracao' },
     ...(this.auth.administrador()

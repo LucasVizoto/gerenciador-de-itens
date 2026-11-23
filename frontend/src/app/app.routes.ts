@@ -30,6 +30,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/dashboard/dashboard-page').then((m) => m.DashboardPage),
       },
       {
+        path: 'agenda',
+        title: 'Agenda · Conformidade de Editais',
+        loadComponent: () => import('./features/agenda/agenda-page').then((m) => m.AgendaPage),
+      },
+      {
         path: 'favoritos',
         title: 'Favoritos · Conformidade de Editais',
         data: { somenteFavoritos: true },

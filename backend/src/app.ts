@@ -8,6 +8,7 @@ import { Prisma } from './generated/prisma/client.js';
 import { autenticar } from './lib/autenticacao.js';
 import { HttpError } from './lib/http-error.js';
 import { prisma } from './lib/prisma.js';
+import { agendaRoutes } from './modules/agenda/agenda.routes.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
 import { categoriasRoutes } from './modules/categorias/categorias.routes.js';
 import { dashboardRoutes } from './modules/dashboard/dashboard.routes.js';
@@ -85,6 +86,7 @@ export async function buildApp() {
       await api.register(dashboardRoutes);
       await api.register(categoriasRoutes);
       await api.register(itensRoutes);
+      await api.register(agendaRoutes);
       await api.register(eventosRoutes);
     },
     { prefix: '/api' },

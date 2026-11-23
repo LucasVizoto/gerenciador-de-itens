@@ -30,9 +30,14 @@
         </p>
       }
     </div>
-    <button type="button" class="btn btn-primary" (click)="criando.set(true)">
-      <app-icone nome="mais" /> Novo sistema
-    </button>
+    <div class="flex w-full flex-wrap gap-2 sm:w-auto">
+      <button type="button" class="btn flex-1 sm:flex-none" (click)="abrirAgendamento()">
+        <app-icone nome="calendario" /> Agendar apresentação
+      </button>
+      <button type="button" class="btn btn-primary flex-1 sm:flex-none" (click)="criando.set(true)">
+        <app-icone nome="mais" /> Novo sistema
+      </button>
+    </div>
   </div>
 </header>
 
@@ -367,6 +372,17 @@
       [salvando]="salvando()"
       (salvar)="criar($event)"
       (cancelar)="criando.set(false)"
+    />
+  }
+</app-modal>
+
+<app-modal titulo="Agendar apresentação" [aberto]="agendando()" (fechado)="agendando.set(false)">
+  @if (agendando()) {
+    <app-apresentacao-form
+      [existentes]="agenda()"
+      [salvando]="salvandoAgenda()"
+      (salvar)="agendar($event)"
+      (cancelar)="agendando.set(false)"
     />
   }
 </app-modal>

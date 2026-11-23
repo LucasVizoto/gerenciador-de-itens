@@ -18,12 +18,13 @@ import { faHeart, faLayerGroup, faShieldHalved } from '@fortawesome/free-solid-s
 import { ApiService, mensagemDeErro } from '../../core/api.service';
 import { ConfirmacaoService } from '../../core/confirmacao.service';
 import { formatarData, formatarPercentual, plural } from '../../core/dominio';
-import type { DadosSistema, SistemaComResumo } from '../../core/models';
+import type { Apresentacao, DadosSistema, SistemaComResumo } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
 import { Icone } from '../../shared/icone';
 import { Modal } from '../../shared/modal';
 import { TituloPagina } from '../../shared/titulo-pagina';
 import { VoltarTopo } from '../../shared/voltar-topo';
+import { ApresentacaoForm, type EnvioApresentacao } from '../agenda/apresentacao-form';
 import {
   ORDENS_POR_PAGINA,
   type OrdemSistemas,
@@ -49,6 +50,7 @@ import { SistemaForm } from './sistema-form';
     SistemaForm,
     TituloPagina,
     VoltarTopo,
+    ApresentacaoForm,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './sistemas-page.html',
@@ -87,6 +89,12 @@ export class SistemasPage implements OnInit {
   protected readonly arrastavel = computed(() => this.ordem() === 'personalizada' && this.visiveis().length > 1);
   protected readonly criando = signal(false);
   protected readonly salvando = signal(false);
+
+  /** Modal "Agendar apresentação" (a agenda carregada serve ao aviso de conflito e às sugestões de bloco). */
+  protected readonly agendando = signal(false);
+  protected readonly salvandoAgenda = signal(false);
+  protected readonly agenda = signal<Apresentacao[]>([]);
+  private readonly formularioAgenda = viewChild(ApresentacaoForm);
 
   protected readonly icones = { conformidade: faShieldHalved, sistemas: faLayerGroup, favoritos: faHeart };
   protected readonly formatarPercentual = formatarPercentual;
@@ -162,6 +170,34 @@ export class SistemasPage implements OnInit {
     this.sistemas.update((lista) =>
       lista.map((s) => (posicoes.has(s.id) ? { ...s, [campo]: posicoes.get(s.id)! } : s)),
     );
+  }
+
+  protected abrirAgendamento() {
+    this.agendando.set(true);
+    this.api.listarApresentacoes().then(
+      (lista) => this.agenda.set(lista),
+      () => undefined, // só alimenta o aviso de conflito; o formulário funciona sem ela
+    );
+  }
+
+  /** Salva e vai para a agenda; com "salvar e adicionar outra" o modal continua aberto. */
+  protected async agendar({ dados, continuar }: EnvioApresentacao) {
+    this.salvandoAgenda.set(true);
+    try {
+      const salva = await this.api.criarApresentacao(dados);
+      this.agenda.update((lista) => [...lista, salva]);
+      this.toast.sucesso(`Apresentação de ${salva.sistema.nome} agendada.`);
+      if (continuar) {
+        this.formularioAgenda()?.prepararProxima(salva);
+      } else {
+        this.agendando.set(false);
+        await this.router.navigate(['/agenda']);
+      }
+    } catch (erro) {
+      this.toast.erro(mensagemDeErro(erro));
+    } finally {
+      this.salvandoAgenda.set(false);
+    }
   }
 
   /** Marca/desmarca na hora e desfaz se a API falhar. Na lista geral o card não muda de lugar. */

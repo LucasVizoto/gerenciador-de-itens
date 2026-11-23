@@ -59,6 +59,7 @@ import { ItemLinha } from './item-linha';
 import { VoltarTopo } from '../../shared/voltar-topo';
 import { PainelMeta, situacaoDaMeta } from './painel-meta';
 import { gerarRelatorioPdf } from './relatorio-pdf';
+import { abrirAbaDeEspera, abrirPdf, slug } from '../../core/pdf';
 
 type ModoOrdem = 'etapas' | 'numerica';
 type Filtro = 'TODOS' | StatusItem;
@@ -78,8 +79,6 @@ interface Grupo {
 
 const SEM_ETAPA = 'sem-etapa';
 const DURACAO_DESTAQUE_MS = 1600;
-/** Tempo até liberar a URL do PDF gerado (a aba já terá carregado o arquivo). */
-const VALIDADE_URL_RELATORIO_MS = 60_000;
 
 const TITULO_TIPO: Record<TipoItem, (n: number) => string> = {
   OBRIGATORIO: (n) => `${n} requisitos obrigatórios`,
@@ -814,7 +813,9 @@ export class GerenciamentoPage {
 
     const nomes = this.responsaveis().map((r) => r.nome);
     const vias: Array<string | null> = nomes.length ? nomes : [null];
-    const janelas = vias.map((responsavel) => abrirAbaDeEspera(responsavel));
+    const janelas = vias.map((responsavel) =>
+      abrirAbaDeEspera(responsavel ? `Gerando relatório de ${responsavel}…` : 'Gerando relatório…'),
+    );
     const pendentes = new Set(janelas.keys());
 
     this.gerandoRelatorio.set(true);
@@ -829,16 +830,9 @@ export class GerenciamentoPage {
       };
       let baixados = 0;
       for (const [indice, responsavel] of vias.entries()) {
-        const url = URL.createObjectURL(await gerarRelatorioPdf({ ...base, responsavel }));
-        const janela = janelas[indice];
-        if (janela && !janela.closed) {
-          janela.location.href = url;
-        } else {
-          baixarArquivo(url, nomeArquivoRelatorio(sistema.nome, responsavel));
-          baixados++;
-        }
+        const blob = await gerarRelatorioPdf({ ...base, responsavel });
+        if (abrirPdf(janelas[indice], blob, nomeArquivoRelatorio(sistema.nome, responsavel))) baixados++;
         pendentes.delete(indice);
-        setTimeout(() => URL.revokeObjectURL(url), VALIDADE_URL_RELATORIO_MS);
       }
       if (baixados && vias.length > 1) {
         this.toast.info(
@@ -964,30 +958,6 @@ export class GerenciamentoPage {
   }
 }
 
-/** Aba em branco com aviso de carregamento; `null` se o navegador bloquear o pop-up. */
-function abrirAbaDeEspera(responsavel: string | null): Window | null {
-  const janela = window.open('', '_blank');
-  if (janela) {
-    const texto = responsavel ? `Gerando relatório de ${responsavel}…` : 'Gerando relatório…';
-    janela.document.title = texto;
-    janela.document.body.textContent = texto;
-    janela.document.body.style.cssText =
-      'font: 14px system-ui, sans-serif; color: #2c3e60; padding: 24px';
-  }
-  return janela;
-}
-
-function baixarArquivo(url: string, nome: string) {
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = nome;
-  link.click();
-}
-
-const slug = (texto: string) =>
-  normalizarBusca(texto)
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-
+/** "relatorio-gestao-de-frotas-ana-souza.pdf" */
 const nomeArquivoRelatorio = (sistema: string, responsavel: string | null) =>
   `relatorio-${[slug(sistema) || 'sistema', responsavel ? slug(responsavel) : ''].filter(Boolean).join('-')}.pdf`;

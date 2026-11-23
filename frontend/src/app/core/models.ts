@@ -15,6 +15,8 @@ export interface Sistema {
   objeto: string | null;
   dataApresentacao: string | null;
   metaPercentual: number;
+  /** Posição na "Ordem personalizada" da listagem (a mesma para todos). */
+  ordem: number;
   criadoEm: string;
   atualizadoEm: string;
 }
@@ -69,6 +71,8 @@ export interface SistemaComResumo extends Sistema {
   resumo: Resumo;
   /** Favoritado pelo usuário logado. */
   favorito: boolean;
+  /** Posição na ordem pessoal da página Favoritos (null se não for favorito). */
+  ordemFavorito: number | null;
 }
 
 /** Quantidade de itens de um tipo com um status. */

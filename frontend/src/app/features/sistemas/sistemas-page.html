@@ -1,15 +1,32 @@
-<header #cabecalho class="border-b border-line bg-linear-to-br from-brand-800 via-brand-900 to-brand-950">
-  <div class="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-6 px-4 py-8 sm:px-6 sm:py-10">
+<header
+  #cabecalho
+  class="border-b border-line bg-linear-to-br from-brand-800 via-brand-900 to-brand-950"
+>
+  <div
+    class="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-6 px-4 py-8 sm:px-6 sm:py-10"
+  >
     <div class="min-w-0">
       @if (somenteFavoritos()) {
-        <app-titulo-pagina sobrelinha="Painel de conformidade" [iconeSobrelinha]="icones.conformidade" [icone]="icones.favoritos">Favoritos</app-titulo-pagina>
+        <app-titulo-pagina
+          sobrelinha="Painel de conformidade"
+          [iconeSobrelinha]="icones.conformidade"
+          [icone]="icones.favoritos"
+          >Favoritos</app-titulo-pagina
+        >
         <p class="mt-2 max-w-2xl leading-relaxed text-brand-200/90">
-          Os sistemas que você marcou com o coração. Clique no coração de novo para tirá-lo desta lista.
+          Os sistemas que você marcou com o coração. Clique no coração de novo para tirá-lo desta
+          lista.
         </p>
       } @else {
-        <app-titulo-pagina sobrelinha="Painel de conformidade" [iconeSobrelinha]="icones.conformidade" [icone]="icones.sistemas">Sistemas</app-titulo-pagina>
+        <app-titulo-pagina
+          sobrelinha="Painel de conformidade"
+          [iconeSobrelinha]="icones.conformidade"
+          [icone]="icones.sistemas"
+          >Sistemas</app-titulo-pagina
+        >
         <p class="mt-2 max-w-2xl leading-relaxed text-brand-200/90">
-          Cada sistema reúne os itens do edital em que ele é apresentado. Clique no sistema para importar a planilha e marcar o atendimento.
+          Cada sistema reúne os itens do edital em que ele é apresentado. Clique no sistema para
+          importar a planilha e marcar o atendimento.
         </p>
       }
     </div>
@@ -27,28 +44,157 @@
       }
     </div>
   } @else {
+    @if (sistemas().length > 1) {
+      <!-- Celular: busca numa linha e contagem + ordenação na de baixo. Desktop: tudo numa linha. -->
+      <div class="mb-4 flex flex-wrap items-center gap-3 sm:mb-5">
+        <div class="relative w-full sm:w-80" role="search">
+          <label for="busca-sistemas" class="sr-only"
+            >Buscar {{ somenteFavoritos() ? 'nos favoritos' : 'sistema' }}</label
+          >
+          <app-icone
+            nome="busca"
+            [tamanho]="15"
+            class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-faint"
+          />
+          <input
+            #campoBusca
+            id="busca-sistemas"
+            type="text"
+            inputmode="search"
+            enterkeyhint="search"
+            autocomplete="off"
+            class="input py-2 pr-9 pl-9"
+            [placeholder]="
+              somenteFavoritos() ? 'Buscar nos favoritos' : 'Buscar por nome, edital ou órgão'
+            "
+            [value]="busca()"
+            (input)="mudarBusca($any($event.target).value)"
+            (keydown.escape)="limparBusca()"
+          />
+          @if (buscando()) {
+            <button
+              type="button"
+              class="absolute top-1/2 right-1.5 -translate-y-1/2 rounded-md p-1.5 text-faint transition-colors hover:bg-surface-3 hover:text-ink-soft"
+              aria-label="Limpar busca"
+              title="Limpar busca"
+              (click)="limparBusca()"
+            >
+              <app-icone nome="fechar" [tamanho]="14" />
+            </button>
+          }
+        </div>
+        <div class="flex min-w-0 flex-1 items-center justify-between gap-3">
+          <p class="shrink-0 text-sm whitespace-nowrap text-muted" aria-live="polite">
+            @if (buscando()) {
+              {{ visiveis().length }} de {{ plural(sistemas().length, 'sistema', 'sistemas') }}
+            } @else {
+              {{ plural(sistemas().length, 'sistema', 'sistemas') }}
+            }
+          </p>
+          <div class="flex min-w-0 items-center gap-2">
+            <label for="ordem-sistemas" class="text-sm whitespace-nowrap text-muted max-sm:sr-only"
+              >Ordenar por</label
+            >
+            <div class="relative min-w-0">
+              <app-icone
+                nome="filtro"
+                [tamanho]="15"
+                class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted"
+              />
+              <select
+                id="ordem-sistemas"
+                class="input w-auto max-w-full py-2 pl-9 font-medium"
+                [value]="ordem()"
+                (change)="mudarOrdem($any($event.target).value)"
+              >
+                @for (opcao of ordens(); track opcao.valor) {
+                  <option [value]="opcao.valor" [selected]="opcao.valor === ordem()">
+                    {{ opcao.rotulo }}
+                  </option>
+                }
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+    @if (arrastavel()) {
+      <p class="-mt-1 mb-4 flex items-center gap-2 text-xs text-muted sm:mb-5">
+        <app-icone nome="arrastar" [tamanho]="14" class="text-brand-500" />
+        @if (somenteFavoritos()) {
+          Arraste os favoritos pela alça para definir a sua ordem. Ela vale só para você.
+        } @else {
+          Arraste os sistemas pela alça para definir a ordem. Ela fica salva para todos os usuários.
+        }
+      </p>
+    }
     <!-- 2 por linha também no celular (card compacto abaixo de md); 3 no desktop largo. -->
-    <div class="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3">
-      @for (sistema of sistemas(); track sistema.id) {
-        <article class="card group relative flex min-w-0 flex-col p-3.5 sm:p-5 transition-colors hover:border-brand-400 hover:shadow-md hover:shadow-brand-950/10 dark:hover:border-brand-600 dark:hover:bg-surface-2 dark:hover:shadow-none">
+    <div
+      class="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3"
+      cdkDropList
+      cdkDropListOrientation="mixed"
+      [cdkDropListDisabled]="!arrastavel()"
+      (cdkDropListDropped)="soltar($event)"
+    >
+      @for (sistema of visiveis(); track sistema.id) {
+        <article
+          cdkDrag
+          [cdkDragData]="sistema"
+          [cdkDragDisabled]="!arrastavel()"
+          class="card group relative flex min-w-0 flex-col p-3.5 sm:p-5 transition-colors hover:border-brand-400 hover:shadow-md hover:shadow-brand-950/10 dark:hover:border-brand-600 dark:hover:bg-surface-2 dark:hover:shadow-none"
+        >
           <div class="flex items-start justify-between gap-2 sm:gap-3">
             <div class="min-w-0">
-              <p class="truncate text-xs font-semibold tracking-wide text-muted uppercase">{{ sistema.numero || 'Edital' }}</p>
-              <h2 class="mt-1 line-clamp-2 text-[15px] leading-snug font-semibold break-words text-ink sm:text-lg group-hover:text-brand-700 md:truncate dark:group-hover:text-white">
-                <a [routerLink]="['/sistemas', sistema.id]" class="after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none">
+              <p class="truncate text-xs font-semibold tracking-wide text-muted uppercase">
+                {{ sistema.numero || 'Edital' }}
+              </p>
+              <h2
+                class="mt-1 line-clamp-2 text-[15px] leading-snug font-semibold break-words text-ink sm:text-lg group-hover:text-brand-700 md:truncate dark:group-hover:text-white"
+              >
+                <a
+                  [routerLink]="['/sistemas', sistema.id]"
+                  class="after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none"
+                >
                   {{ sistema.nome }}{{ sistema.versao ? ' · v' + sistema.versao : '' }}
                 </a>
               </h2>
-              <div class="mt-2 md:hidden"><ng-container [ngTemplateOutlet]="selo" [ngTemplateOutletContext]="{ $implicit: sistema }" /></div>
+              <div class="mt-2 md:hidden">
+                <ng-container
+                  [ngTemplateOutlet]="selo"
+                  [ngTemplateOutletContext]="{ $implicit: sistema }"
+                />
+              </div>
             </div>
             <div class="flex shrink-0 items-center gap-1.5">
-              <span class="hidden md:contents"><ng-container [ngTemplateOutlet]="selo" [ngTemplateOutletContext]="{ $implicit: sistema }" /></span>
+              <span class="hidden md:contents"
+                ><ng-container
+                  [ngTemplateOutlet]="selo"
+                  [ngTemplateOutletContext]="{ $implicit: sistema }"
+              /></span>
+              @if (arrastavel()) {
+                <button
+                  type="button"
+                  cdkDragHandle
+                  class="relative z-10 -mt-1 cursor-grab max-md:hidden touch-none rounded-md p-1.5 text-faint transition-colors hover:bg-surface-3 hover:text-ink-soft active:cursor-grabbing"
+                  [attr.aria-label]="'Arrastar ' + sistema.nome + ' para mudar a ordem'"
+                  title="Arrastar para mudar a ordem"
+                >
+                  <app-icone nome="arrastar" [tamanho]="18" />
+                </button>
+              }
               <button
                 type="button"
                 class="relative z-10 -mr-1.5 -mt-1 rounded-md p-1.5 transition-colors"
-                [class]="sistema.favorito ? 'text-rose-500 dark:text-rose-400' : 'text-faint hover:text-rose-500 dark:hover:text-rose-300'"
+                [class]="
+                  sistema.favorito
+                    ? 'text-rose-500 dark:text-rose-400'
+                    : 'text-faint hover:text-rose-500 dark:hover:text-rose-300'
+                "
                 [attr.aria-pressed]="sistema.favorito"
-                [attr.aria-label]="(sistema.favorito ? 'Remover dos favoritos: ' : 'Adicionar aos favoritos: ') + sistema.nome"
+                [attr.aria-label]="
+                  (sistema.favorito ? 'Remover dos favoritos: ' : 'Adicionar aos favoritos: ') +
+                  sistema.nome
+                "
                 [title]="sistema.favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos'"
                 (click)="alternarFavorito(sistema, $event)"
               >
@@ -65,57 +211,129 @@
               </p>
             }
             @if (sistema.orgao) {
-              <p class="flex items-center gap-2"><app-icone nome="predio" [tamanho]="14" /><span class="truncate">{{ sistema.orgao }}</span></p>
+              <p class="flex items-center gap-2">
+                <app-icone nome="predio" [tamanho]="14" /><span class="truncate">{{
+                  sistema.orgao
+                }}</span>
+              </p>
             }
             @if (sistema.dataApresentacao) {
-              <p class="flex items-center gap-2"><app-icone nome="calendario" [tamanho]="14" />{{ formatarData(sistema.dataApresentacao) }}</p>
+              <p class="flex items-center gap-2">
+                <app-icone nome="calendario" [tamanho]="14" />{{
+                  formatarData(sistema.dataApresentacao)
+                }}
+              </p>
             }
           </div>
 
           <div class="mt-auto pt-5">
             <div class="flex items-baseline justify-between text-xs">
-              <span class="truncate text-muted"><span class="max-md:hidden">Essenciais · meta</span><span class="md:hidden">Meta</span> {{ sistema.metaPercentual }}%</span>
-              <span class="font-semibold text-ink tabular-nums">{{ formatarPercentual(sistema.resumo.essenciais.percentual) }}</span>
+              <span class="truncate text-muted"
+                ><span class="max-md:hidden">Essenciais · meta</span
+                ><span class="md:hidden">Meta</span> {{ sistema.metaPercentual }}%</span
+              >
+              <span class="font-semibold text-ink tabular-nums">{{
+                formatarPercentual(sistema.resumo.essenciais.percentual)
+              }}</span>
             </div>
             <div class="relative mt-2 h-2 overflow-hidden rounded-full bg-surface-3">
-              <div class="h-full rounded-full bg-brand-500 transition-all" [style.width.%]="sistema.resumo.essenciais.percentual"></div>
-              <div class="absolute inset-y-0 w-0.5 bg-ink/60" [style.left.%]="sistema.metaPercentual"></div>
+              <div
+                class="h-full rounded-full bg-brand-500 transition-all"
+                [style.width.%]="sistema.resumo.essenciais.percentual"
+              ></div>
+              <div
+                class="absolute inset-y-0 w-0.5 bg-ink/60"
+                [style.left.%]="sistema.metaPercentual"
+              ></div>
             </div>
-            <div class="mt-3 flex items-end justify-between gap-2 text-xs text-muted md:items-center">
+            <div
+              class="mt-3 flex items-end justify-between gap-2 text-xs text-muted md:items-center"
+            >
               <span class="min-w-0 leading-relaxed">
-                <span class="block md:inline">{{ sistema.resumo.essenciais.atendidos }}/{{ sistema.resumo.essenciais.total }} essenciais</span>
+                <span class="block md:inline"
+                  >{{ sistema.resumo.essenciais.atendidos }}/{{
+                    sistema.resumo.essenciais.total
+                  }}
+                  essenciais</span
+                >
                 <span class="max-md:hidden"> · </span>
-                <span class="block md:inline">{{ sistema.resumo.obrigatorios.atendidos }}/{{ sistema.resumo.obrigatorios.total }} obrigatórios</span>
+                <span class="block md:inline"
+                  >{{ sistema.resumo.obrigatorios.atendidos }}/{{
+                    sistema.resumo.obrigatorios.total
+                  }}
+                  obrigatórios</span
+                >
               </span>
-              <button
-                type="button"
-                class="relative z-10 rounded-md p-1.5 text-faint transition group-hover:opacity-100 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-300 focus:opacity-100 md:opacity-0"
-                [attr.aria-label]="'Excluir sistema ' + sistema.nome"
-                (click)="remover(sistema, $event)"
-              >
-                <app-icone nome="lixeira" [tamanho]="14" />
-              </button>
+              <div class="flex shrink-0 items-center">
+                @if (arrastavel()) {
+                  <button
+                    type="button"
+                    cdkDragHandle
+                    class="relative z-10 cursor-grab touch-none rounded-md p-1.5 text-faint transition-colors hover:bg-surface-3 hover:text-ink-soft active:cursor-grabbing md:hidden"
+                    [attr.aria-label]="'Arrastar ' + sistema.nome + ' para mudar a ordem'"
+                  >
+                    <app-icone nome="arrastar" [tamanho]="16" />
+                  </button>
+                }
+                <button
+                  type="button"
+                  class="relative z-10 rounded-md p-1.5 text-faint transition group-hover:opacity-100 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-300 focus:opacity-100 md:opacity-0"
+                  [attr.aria-label]="'Excluir sistema ' + sistema.nome"
+                  (click)="remover(sistema, $event)"
+                >
+                  <app-icone nome="lixeira" [tamanho]="14" />
+                </button>
+              </div>
             </div>
           </div>
         </article>
       } @empty {
-        @if (somenteFavoritos()) {
+        @if (buscando() && sistemas().length) {
           <div class="card col-span-full flex flex-col items-center px-6 py-16 text-center">
-            <span class="grid size-12 place-items-center rounded-xl bg-rose-50 text-rose-500 dark:bg-rose-500/10 dark:text-rose-300"><app-icone nome="coracao" [tamanho]="22" /></span>
+            <span
+              class="grid size-12 place-items-center rounded-xl bg-surface-2 text-muted dark:bg-surface-3"
+              ><app-icone nome="busca" [tamanho]="22"
+            /></span>
+            <h2 class="mt-4 text-lg font-semibold">
+              Nenhum {{ somenteFavoritos() ? 'favorito' : 'sistema' }} encontrado
+            </h2>
+            <p class="mt-1 max-w-md text-sm break-words text-muted">
+              Nada corresponde a "{{ busca().trim() }}". Confira a grafia ou busque pelo número do
+              edital ou pelo órgão.
+            </p>
+            <button type="button" class="btn mt-6" (click)="limparBusca()">
+              <app-icone nome="fechar" /> Limpar busca
+            </button>
+          </div>
+        } @else if (somenteFavoritos()) {
+          <div class="card col-span-full flex flex-col items-center px-6 py-16 text-center">
+            <span
+              class="grid size-12 place-items-center rounded-xl bg-rose-50 text-rose-500 dark:bg-rose-500/10 dark:text-rose-300"
+              ><app-icone nome="coracao" [tamanho]="22"
+            /></span>
             <h2 class="mt-4 text-lg font-semibold">Nenhum sistema favoritado</h2>
             <p class="mt-1 max-w-md text-sm text-muted">
-              Na lista de sistemas, clique no coração no canto superior direito de um sistema para encontrá-lo aqui.
+              Na lista de sistemas, clique no coração no canto superior direito de um sistema para
+              encontrá-lo aqui.
             </p>
-            <a routerLink="/" class="btn btn-primary mt-6"><app-icone nome="monitor" /> Ver sistemas</a>
+            <a routerLink="/" class="btn btn-primary mt-6"
+              ><app-icone nome="monitor" /> Ver sistemas</a
+            >
           </div>
         } @else {
           <div class="card col-span-full flex flex-col items-center px-6 py-16 text-center">
-            <span class="grid size-12 place-items-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900 dark:text-brand-300"><app-icone nome="monitor" [tamanho]="22" /></span>
+            <span
+              class="grid size-12 place-items-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900 dark:text-brand-300"
+              ><app-icone nome="monitor" [tamanho]="22"
+            /></span>
             <h2 class="mt-4 text-lg font-semibold">Nenhum sistema cadastrado</h2>
             <p class="mt-1 max-w-md text-sm text-muted">
-              Cadastre o sistema que será apresentado e, na tela seguinte, importe o CSV com os itens do edital.
+              Cadastre o sistema que será apresentado e, na tela seguinte, importe o CSV com os
+              itens do edital.
             </p>
-            <button type="button" class="btn btn-primary mt-6" (click)="criando.set(true)"><app-icone nome="mais" /> Novo sistema</button>
+            <button type="button" class="btn btn-primary mt-6" (click)="criando.set(true)">
+              <app-icone nome="mais" /> Novo sistema
+            </button>
           </div>
         }
       }
@@ -126,17 +344,30 @@
 <!-- Selo de situação: ao lado do coração a partir de md; abaixo do título no card compacto do celular. -->
 <ng-template #selo let-sistema>
   @if (sistema.resumo.metaAtingida) {
-    <span class="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300">Meta atingida</span>
+    <span
+      class="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300"
+      >Meta atingida</span
+    >
   } @else if (sistema.resumo.totalItens === 0) {
-    <span class="shrink-0 rounded-full border border-line bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-muted dark:bg-surface-3">Sem itens</span>
+    <span
+      class="shrink-0 rounded-full border border-line bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-muted dark:bg-surface-3"
+      >Sem itens</span
+    >
   } @else {
-    <span class="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">Em avaliação</span>
+    <span
+      class="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
+      >Em avaliação</span
+    >
   }
 </ng-template>
 
 <app-modal titulo="Novo sistema" [aberto]="criando()" (fechado)="criando.set(false)">
   @if (criando()) {
-    <app-sistema-form [salvando]="salvando()" (salvar)="criar($event)" (cancelar)="criando.set(false)" />
+    <app-sistema-form
+      [salvando]="salvando()"
+      (salvar)="criar($event)"
+      (cancelar)="criando.set(false)"
+    />
   }
 </app-modal>
 

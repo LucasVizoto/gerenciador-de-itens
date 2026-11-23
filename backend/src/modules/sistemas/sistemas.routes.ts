@@ -58,6 +58,24 @@ async function sincronizarResponsaveis(tx: Prisma.TransactionClient, sistemaId: 
   }
 }
 
+const corpoOrdem = z.object({
+  ids: z.array(z.uuid('Identificador de sistema inválido')).min(1).max(1000),
+});
+
+/**
+ * Regra das ordens arrastáveis: as posições que os `ids` enviados já ocupavam são redistribuídas entre eles
+ * na nova ordem, sem mexer nos demais (assim funciona tanto para a lista inteira quanto para parte dela).
+ * Posições repetidas (ex.: criados ao mesmo tempo) viram uma sequência a partir da menor.
+ */
+function redistribuir(ordensAtuais: number[]): number[] {
+  const posicoes = [...ordensAtuais].sort((a, b) => a - b);
+  return new Set(posicoes).size === posicoes.length ? posicoes : posicoes.map((_, i) => posicoes[0]! + i);
+}
+
+function semRepetidos(ids: string[]) {
+  if (new Set(ids).size !== ids.length) throw new HttpError(400, 'A lista de sistemas tem itens repetidos');
+}
+
 const filtroLista = z.object({
   favoritos: z
     .enum(['true', 'false'])
@@ -77,15 +95,17 @@ export async function sistemasRoutes(app: FastifyInstance) {
         where: somenteFavoritos ? favoritoDoUsuario : undefined,
         orderBy: { criadoEm: 'desc' },
       }),
-      prisma.usuarioFavorito.findMany({ where: { usuarioId: usuario.id }, select: { sistemaId: true } }),
+      prisma.usuarioFavorito.findMany({ where: { usuarioId: usuario.id }, select: { sistemaId: true, ordem: true } }),
       prisma.item.groupBy({ by: ['sistemaId', 'tipo', 'status'], _count: { _all: true } }),
     ]);
-    const idsFavoritos = new Set(favoritos.map((f) => f.sistemaId));
+    const ordemFavorito = new Map(favoritos.map((f) => [f.sistemaId, f.ordem]));
 
     return sistemas
       .map((sistema) => ({
         ...sistema,
-        favorito: idsFavoritos.has(sistema.id),
+        favorito: ordemFavorito.has(sistema.id),
+        /** Posição na ordem pessoal da página Favoritos (null se não for favorito). */
+        ordemFavorito: ordemFavorito.get(sistema.id) ?? null,
         resumo: calcularResumo(
           contagens
             .filter((c) => c.sistemaId === sistema.id)
@@ -99,12 +119,45 @@ export async function sistemasRoutes(app: FastifyInstance) {
   app.put('/sistemas/:id/favorito', async (request, reply) => {
     const usuario = usuarioDa(request);
     const { id } = parametroId.parse(request.params);
+    // O favorito novo entra no topo da ordem pessoal (como o sistema novo na ordem geral).
+    const { _min } = await prisma.usuarioFavorito.aggregate({ where: { usuarioId: usuario.id }, _min: { ordem: true } });
     await prisma.usuarioFavorito.upsert({
       where: { usuarioId_sistemaId: { usuarioId: usuario.id, sistemaId: id } },
-      create: { usuarioId: usuario.id, sistemaId: id },
+      create: { usuarioId: usuario.id, sistemaId: id, ordem: (_min.ordem ?? 1) - 1 },
       update: {},
     });
     return reply.status(204).send();
+  });
+
+  /** Ordem pessoal da página Favoritos (só do usuário logado). `ids` são sistemas favoritados, na nova ordem. */
+  app.put('/sistemas/favoritos/ordem', async (request) => {
+    const usuario = usuarioDa(request);
+    const { ids } = corpoOrdem.parse(request.body);
+    semRepetidos(ids);
+
+    await prisma.$transaction(async (tx) => {
+      const atuais = await tx.usuarioFavorito.findMany({
+        where: { usuarioId: usuario.id, sistemaId: { in: ids } },
+        select: { ordem: true },
+      });
+      if (atuais.length !== ids.length) {
+        throw new HttpError(404, 'Algum dos sistemas não está mais nos seus favoritos. Recarregue a página');
+      }
+      const posicoes = redistribuir(atuais.map((f) => f.ordem));
+      for (const [indice, sistemaId] of ids.entries()) {
+        await tx.usuarioFavorito.update({
+          where: { usuarioId_sistemaId: { usuarioId: usuario.id, sistemaId } },
+          data: { ordem: posicoes[indice]! },
+        });
+      }
+    });
+
+    const favoritos = await prisma.usuarioFavorito.findMany({
+      where: { usuarioId: usuario.id },
+      select: { sistemaId: true, ordem: true },
+      orderBy: { ordem: 'asc' },
+    });
+    return favoritos.map((f) => ({ id: f.sistemaId, ordem: f.ordem }));
   });
 
   app.delete('/sistemas/:id/favorito', async (request, reply) => {
@@ -116,11 +169,31 @@ export async function sistemasRoutes(app: FastifyInstance) {
 
   app.post('/sistemas', async (request, reply) => {
     const { responsaveis, ...dados } = corpoSistema.parse(request.body);
+    // Na ordem personalizada, o sistema novo entra no topo (como na ordem por mais recentes).
+    const { _min } = await prisma.sistema.aggregate({ _min: { ordem: true } });
     const sistema = await prisma.sistema.create({
-      data: { ...dados, responsaveis: { create: (responsaveis ?? []).map(({ nome }, ordem) => ({ nome, ordem })) } },
+      data: { ...dados, ordem: (_min.ordem ?? 1) - 1, responsaveis: { create: (responsaveis ?? []).map(({ nome }, ordem) => ({ nome, ordem })) } },
       include: responsaveisOrdenados,
     });
     return reply.status(201).send(sistema);
+  });
+
+  /** Ordem personalizada da listagem (vale para todos). `ids` vem na nova ordem e pode ser só parte dos sistemas. */
+  app.put('/sistemas/ordem', async (request) => {
+    const { ids } = corpoOrdem.parse(request.body);
+    semRepetidos(ids);
+
+    await prisma.$transaction(async (tx) => {
+      const atuais = await tx.sistema.findMany({ where: { id: { in: ids } }, select: { ordem: true } });
+      if (atuais.length !== ids.length) throw new HttpError(404, 'Algum dos sistemas não existe mais. Recarregue a página');
+
+      const posicoes = redistribuir(atuais.map((s) => s.ordem));
+      for (const [indice, id] of ids.entries()) {
+        await tx.sistema.update({ where: { id }, data: { ordem: posicoes[indice]! } });
+      }
+    });
+
+    return prisma.sistema.findMany({ select: { id: true, ordem: true }, orderBy: { ordem: 'asc' } });
   });
 
   /** Tela do sistema: dados, etapas e itens do edital, já ordenados. */

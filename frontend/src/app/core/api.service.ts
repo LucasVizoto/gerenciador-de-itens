@@ -73,6 +73,16 @@ export class ApiService {
     return this.enviar(this.http.put<SistemaComResponsaveis>(`${API}/sistemas/${id}`, dados));
   }
 
+  /** Ordem personalizada: `ids` na nova ordem (pode ser só parte dos sistemas, ex.: favoritos). */
+  reordenarSistemas(ids: string[]) {
+    return this.enviar(this.http.put<Array<{ id: string; ordem: number }>>(`${API}/sistemas/ordem`, { ids }));
+  }
+
+  /** Ordem pessoal da página Favoritos (só do usuário logado). */
+  reordenarFavoritos(ids: string[]) {
+    return this.enviar(this.http.put<Array<{ id: string; ordem: number }>>(`${API}/sistemas/favoritos/ordem`, { ids }));
+  }
+
   removerSistema(id: string) {
     return this.enviar(this.http.delete<void>(`${API}/sistemas/${id}`));
   }

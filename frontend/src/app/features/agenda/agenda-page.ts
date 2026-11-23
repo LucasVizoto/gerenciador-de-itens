@@ -15,6 +15,7 @@ import { ApiService, mensagemDeErro } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { ConfirmacaoService } from '../../core/confirmacao.service';
 import { plural } from '../../core/dominio';
+import { abrirAbaDeEspera, abrirPdf, slug } from '../../core/pdf';
 import type { Apresentacao, DadosApresentacao } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
 import { Icone } from '../../shared/icone';
@@ -33,6 +34,7 @@ import {
   iniciais,
 } from './agenda-util';
 import { ApresentacaoForm, type EnvioApresentacao, type SugestaoApresentacao } from './apresentacao-form';
+import { gerarRoteiroPdf } from './roteiro-pdf';
 
 type Visao = 'geral' | 'minhas';
 
@@ -68,6 +70,7 @@ export class AgendaPage implements OnInit {
   protected readonly apresentacoes = signal<Apresentacao[]>([]);
   protected readonly carregando = signal(true);
   protected readonly salvando = signal(false);
+  protected readonly gerandoRoteiro = signal(false);
   protected readonly edicao = signal<Edicao | null>(null);
   /** Atualizado a cada 30 s para os selos "Hoje" e "Agora". */
   protected readonly agora = signal(agoraLocal());
@@ -144,6 +147,35 @@ export class AgendaPage implements OnInit {
 
   protected diaPassado(chave: string) {
     return chave < this.agora().dia;
+  }
+
+  /**
+   * Roteiro em PDF do que está na tela (agenda geral ou só as minhas), aberto numa aba nova.
+   * A aba é aberta ainda no clique para não ser barrada pelo bloqueador de pop-ups; se for, o PDF é baixado.
+   */
+  protected async imprimirRoteiro() {
+    const dias = this.dias();
+    if (!dias.length || this.gerandoRoteiro()) return;
+
+    const visao = this.visao();
+    const usuario = this.auth.usuario();
+    const janela = abrirAbaDeEspera('Gerando roteiro…');
+    this.gerandoRoteiro.set(true);
+    try {
+      const blob = await gerarRoteiroPdf({
+        dias,
+        visao,
+        usuario: usuario ? { id: usuario.id, nomeCompleto: usuario.nomeCompleto } : null,
+      });
+      const nome =
+        visao === 'minhas' && usuario ? `roteiro-${slug(usuario.nomeCompleto) || 'minhas'}.pdf` : 'roteiro-agenda.pdf';
+      if (abrirPdf(janela, blob, nome)) this.toast.info('O navegador bloqueou a nova aba, então o roteiro foi baixado.');
+    } catch (erro) {
+      janela?.close();
+      this.toast.erro(`Não foi possível gerar o roteiro: ${mensagemDeErro(erro)}`);
+    } finally {
+      this.gerandoRoteiro.set(false);
+    }
   }
 
   protected nova(sugestao: SugestaoApresentacao | null = null) {

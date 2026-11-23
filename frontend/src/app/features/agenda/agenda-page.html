@@ -11,9 +11,25 @@
         }
       </p>
     </div>
-    <button type="button" class="btn btn-primary" (click)="nova()">
-      <app-icone nome="mais" /> Nova apresentação
-    </button>
+    <div class="flex w-full flex-wrap gap-2 sm:w-auto sm:gap-3">
+      <button
+        type="button"
+        class="btn flex-1 sm:flex-none"
+        [disabled]="carregando() || gerandoRoteiro() || !dias().length"
+        [title]="visao() === 'minhas' ? 'Roteiro em PDF só com as suas apresentações' : 'Roteiro em PDF da agenda geral'"
+        (click)="imprimirRoteiro()"
+      >
+        @if (gerandoRoteiro()) {
+          <span class="spinner"></span>
+        } @else {
+          <app-icone nome="impressora" />
+        }
+        Imprimir roteiro
+      </button>
+      <button type="button" class="btn btn-primary flex-1 sm:flex-none" (click)="nova()">
+        <app-icone nome="mais" /> Nova apresentação
+      </button>
+    </div>
   </div>
 </header>
 

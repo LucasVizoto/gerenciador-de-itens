@@ -20,13 +20,15 @@ export function formatarHorario(horario: string): string {
 
 export const faixaHorario = ({ inicio, fim }: Faixa) => `${formatarHorario(inicio)}–${formatarHorario(fim)}`;
 
-/** "45 min", "1h", "1h30". */
-export function duracao({ inicio, fim }: Faixa): string {
-  const total = minutos(fim) - minutos(inicio);
+/** 45 → "45 min"; 60 → "1h"; 90 → "1h30". */
+export function formatarDuracao(total: number): string {
   if (total < 60) return `${total} min`;
   const resto = total % 60;
   return `${Math.floor(total / 60)}h${resto ? String(resto).padStart(2, '0') : ''}`;
 }
+
+/** "45 min", "1h", "1h30". */
+export const duracao = ({ inicio, fim }: Faixa) => formatarDuracao(minutos(fim) - minutos(inicio));
 
 /** Mesmo horário somado de `delta` minutos, limitado a 23:55 (usado para sugerir o próximo bloco). */
 export const somarMinutos = (horario: string, delta: number) =>

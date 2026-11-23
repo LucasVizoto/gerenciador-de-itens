@@ -15,6 +15,8 @@ export interface Sistema {
   objeto: string | null;
   dataApresentacao: string | null;
   metaPercentual: number;
+  /** Posição na "Ordem personalizada" da listagem (a mesma para todos). */
+  ordem: number;
   criadoEm: string;
   atualizadoEm: string;
 }
@@ -69,6 +71,8 @@ export interface SistemaComResumo extends Sistema {
   resumo: Resumo;
   /** Favoritado pelo usuário logado. */
   favorito: boolean;
+  /** Posição na ordem pessoal da página Favoritos (null se não for favorito). */
+  ordemFavorito: number | null;
 }
 
 /** Quantidade de itens de um tipo com um status. */
@@ -183,4 +187,40 @@ export interface EventoEdital {
     | 'sistema.removido';
   dados?: unknown;
   origem?: string;
+}
+
+/** Usuário ativo, como aparece nas listas de escolha (ex.: apresentador da agenda). */
+export interface PessoaResumo {
+  id: string;
+  nomeCompleto: string;
+}
+
+/** Apresentação da agenda. `data` vem como ISO (meia-noite UTC); `inicio`/`fim` como "HH:MM". */
+export interface Apresentacao {
+  id: string;
+  sistemaId: string;
+  sistema: { id: string; nome: string; versao: string | null };
+  complemento: string | null;
+  tema: string | null;
+  data: string;
+  inicio: string;
+  fim: string;
+  apresentadorId: string | null;
+  apresentador: PessoaResumo | null;
+  apoioId: string | null;
+  apoio: PessoaResumo | null;
+  criadoEm: string;
+  atualizadoEm: string;
+}
+
+export interface DadosApresentacao {
+  sistemaId: string;
+  complemento: string | null;
+  tema: string | null;
+  /** AAAA-MM-DD */
+  data: string;
+  inicio: string;
+  fim: string;
+  apresentadorId: string;
+  apoioId: string | null;
 }

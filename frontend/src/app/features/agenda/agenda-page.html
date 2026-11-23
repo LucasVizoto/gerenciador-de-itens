@@ -1,0 +1,231 @@
+<header #cabecalho class="border-b border-line bg-linear-to-br from-brand-800 via-brand-900 to-brand-950">
+  <div class="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-6 px-4 py-8 sm:px-6 sm:py-10">
+    <div class="min-w-0">
+      <app-titulo-pagina sobrelinha="Cronograma oficial" [iconeSobrelinha]="icones.conformidade" [icone]="icones.agenda">Agenda de apresentações</app-titulo-pagina>
+      <p class="mt-2 max-w-2xl leading-relaxed text-brand-200/90">
+        @if (periodo(); as periodo) {
+          <span class="font-semibold text-white">{{ periodo }}</span>
+          · {{ plural(totalDias(), 'dia', 'dias') }} · {{ plural(apresentacoes().length, 'apresentação', 'apresentações') }}
+        } @else {
+          Monte o cronograma das apresentações: dia, horário, sistema, apresentador e apoio.
+        }
+      </p>
+    </div>
+    <div class="flex w-full flex-wrap gap-2 sm:w-auto sm:gap-3">
+      <button
+        type="button"
+        class="btn flex-1 sm:flex-none"
+        [disabled]="carregando() || gerandoRoteiro() || !dias().length"
+        [title]="visao() === 'minhas' ? 'Roteiro em PDF só com as suas apresentações' : 'Roteiro em PDF da agenda geral'"
+        (click)="imprimirRoteiro()"
+      >
+        @if (gerandoRoteiro()) {
+          <span class="spinner"></span>
+        } @else {
+          <app-icone nome="impressora" />
+        }
+        Imprimir roteiro
+      </button>
+      <button type="button" class="btn btn-primary flex-1 sm:flex-none" (click)="nova()">
+        <app-icone nome="mais" /> Nova apresentação
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+  <!-- Visão: agenda geral x apenas as apresentações do usuário logado -->
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="inline-flex w-full rounded-xl border border-line bg-surface-2 p-1 sm:w-auto dark:bg-surface" role="group" aria-label="Visão da agenda">
+      @for (opcao of [{ valor: 'geral', rotulo: 'Agenda geral', total: apresentacoes().length }, { valor: 'minhas', rotulo: 'Minhas apresentações', total: minhas().length }]; track opcao.valor) {
+        <button
+          type="button"
+          class="flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors sm:flex-none sm:px-4"
+          [class]="visao() === opcao.valor ? 'bg-surface text-ink shadow-sm shadow-brand-950/10 ring-1 ring-line dark:bg-surface-3 dark:shadow-none' : 'text-muted hover:text-ink'"
+          [attr.aria-pressed]="visao() === opcao.valor"
+          (click)="mudarVisao($any(opcao.valor))"
+        >
+          <app-icone [nome]="opcao.valor === 'geral' ? 'calendario' : 'usuario'" [tamanho]="15" />
+          <span class="max-[380px]:hidden">{{ opcao.rotulo }}</span>
+          <span class="min-[381px]:hidden">{{ opcao.valor === 'geral' ? 'Geral' : 'Minhas' }}</span>
+          <span
+            class="rounded-full px-1.5 py-0.5 text-[11px] leading-none font-semibold tabular-nums"
+            [class]="visao() === opcao.valor ? 'bg-brand-600 text-white dark:bg-brand-500' : 'bg-surface-3 text-muted dark:bg-surface-2'"
+          >{{ opcao.total }}</span>
+        </button>
+      }
+    </div>
+    @if (!carregando() && visao() === 'minhas' && minhas().length) {
+      <p class="text-sm text-muted">
+        Você está em <span class="font-semibold text-ink">{{ plural(minhas().length, 'apresentação', 'apresentações') }}</span>
+      </p>
+    }
+  </div>
+
+  @if (carregando()) {
+    <div class="mt-6 space-y-6">
+      @for (i of [1, 2]; track i) {
+        <div class="flex items-center gap-4">
+          <div class="size-14 animate-pulse rounded-2xl bg-surface-3"></div>
+          <div class="h-5 w-48 animate-pulse rounded bg-surface-3"></div>
+        </div>
+        <div class="card h-56 animate-pulse bg-surface-2"></div>
+      }
+    </div>
+  } @else if (!apresentacoes().length) {
+    <div class="card mt-6 flex flex-col items-center px-6 py-16 text-center">
+      <span class="grid size-12 place-items-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900 dark:text-brand-300"><app-icone nome="calendario" [tamanho]="22" /></span>
+      <h2 class="mt-4 text-lg font-semibold">Nenhuma apresentação agendada</h2>
+      <p class="mt-1 max-w-md text-sm text-muted">Cadastre os horários do cronograma oficial. Use "Salvar e adicionar outra" para lançar um dia inteiro em sequência.</p>
+      <button type="button" class="btn btn-primary mt-6" (click)="nova()"><app-icone nome="mais" /> Nova apresentação</button>
+    </div>
+  } @else if (!dias().length) {
+    <div class="card mt-6 flex flex-col items-center px-6 py-16 text-center">
+      <span class="grid size-12 place-items-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900 dark:text-brand-300"><app-icone nome="usuario" [tamanho]="22" /></span>
+      <h2 class="mt-4 text-lg font-semibold">Você não está escalado em nenhuma apresentação</h2>
+      <p class="mt-1 max-w-md text-sm text-muted">Quando você for apresentador ou apoio de algum horário, ele aparece aqui.</p>
+      <button type="button" class="btn mt-6" (click)="mudarVisao('geral')"><app-icone nome="calendario" [tamanho]="16" /> Ver a agenda geral</button>
+    </div>
+  } @else {
+    <div class="mt-4 space-y-8 sm:mt-6">
+      @for (dia of dias(); track dia.chave) {
+        @let passado = diaPassado(dia.chave);
+        @let hoje = dia.chave === agora().dia;
+        <section [attr.aria-labelledby]="'dia-' + dia.chave" [class.opacity-75]="passado">
+          <!-- Cabeçalho do dia (fixo no topo ao rolar), no espírito das faixas do cronograma oficial -->
+          <header class="sticky top-0 z-10 -mx-4 flex items-center gap-3 bg-canvas/85 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:gap-4 sm:px-6">
+            <div
+              class="flex w-14 shrink-0 flex-col items-center rounded-2xl py-1.5 leading-none shadow-sm"
+              [class]="hoje ? 'bg-emerald-600 text-white shadow-emerald-600/30' : 'bg-brand-600 text-white shadow-brand-600/25 dark:bg-brand-500 dark:shadow-none'"
+              aria-hidden="true"
+            >
+              <span class="text-[10px] font-semibold tracking-wider uppercase opacity-85">{{ dia.semanaCurta }}</span>
+              <span class="mt-0.5 text-xl font-bold tabular-nums">{{ dia.numero }}</span>
+              <span class="mt-0.5 text-[10px] font-medium uppercase opacity-85">{{ dia.mesCurto }}</span>
+            </div>
+            <div class="min-w-0 flex-1">
+              @if (dia.temas.length) {
+                <p class="line-clamp-2 text-[11px] font-semibold tracking-wider text-brand-600 uppercase sm:truncate dark:text-brand-300" [title]="dia.temas.join(' · ')">
+                  {{ dia.temas.join(' · ') }}
+                </p>
+              }
+              <h2 [id]="'dia-' + dia.chave" class="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-semibold text-ink sm:text-lg">
+                {{ dia.semana }} <span class="font-normal text-muted">· {{ dia.data }}</span>
+                @if (hoje) {
+                  <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30">Hoje</span>
+                }
+              </h2>
+            </div>
+            <span class="hidden shrink-0 text-xs text-muted sm:inline">{{ plural(dia.apresentacoes.length, 'apresentação', 'apresentações') }}</span>
+            @if (visao() === 'geral') {
+              <button type="button" class="btn btn-ghost shrink-0 p-2 text-muted hover:text-ink" [title]="'Adicionar em ' + dia.semana" [attr.aria-label]="'Adicionar apresentação em ' + dia.semana + ', ' + dia.data" (click)="novaNoDia(dia)">
+                <app-icone nome="mais" [tamanho]="18" />
+              </button>
+            }
+          </header>
+
+          <ol class="card mt-1 divide-y divide-line overflow-hidden">
+            <!-- Cabeçalho das colunas, como no cronograma oficial (só no desktop, onde as pessoas viram colunas) -->
+            <li class="hidden grid-cols-[7.5rem_minmax(0,1fr)_30rem_3.875rem] gap-x-5 bg-surface-2/70 px-5 py-2 text-[11px] font-semibold tracking-wider text-muted uppercase lg:grid dark:bg-canvas/40" aria-hidden="true">
+              <span>Horário</span>
+              <span>Sistema</span>
+              <span class="grid grid-cols-2 gap-2"><span>Apresentador</span><span>Apoio</span></span>
+              <span></span>
+            </li>
+            @for (apresentacao of dia.apresentacoes; track apresentacao.id) {
+              @let papel = meuPapel(apresentacao);
+              @let aoVivo = acontecendo(apresentacao);
+              <li
+                class="relative grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2.5 px-4 py-3.5 transition-colors sm:grid-cols-[7.5rem_minmax(0,1fr)_auto] sm:items-center sm:gap-x-5 sm:px-5 sm:py-4"
+                [class]="papel ? 'bg-brand-50/70 dark:bg-brand-500/[0.07]' : 'hover:bg-surface-2/60'"
+              >
+                @if (papel || aoVivo) {
+                  <span class="absolute inset-y-0 left-0 w-1" [class]="aoVivo ? 'bg-emerald-500' : 'bg-brand-500'" aria-hidden="true"></span>
+                }
+
+                <!-- Horário -->
+                <div class="flex items-baseline gap-2 sm:block">
+                  <p class="font-semibold text-ink tabular-nums sm:text-[15px]">{{ faixaHorario(apresentacao) }}</p>
+                  <p class="flex items-center gap-1 text-xs text-muted sm:mt-0.5">
+                    <app-icone nome="relogio" [tamanho]="12" class="max-sm:hidden" />{{ duracao(apresentacao) }}
+                  </p>
+                </div>
+
+                <!-- Sistema + pessoas -->
+                <div class="col-span-2 row-start-2 min-w-0 sm:col-span-1 sm:col-start-2 sm:row-start-1 lg:flex lg:items-center lg:justify-between lg:gap-6">
+                  <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
+                    <a
+                      [routerLink]="['/sistemas', apresentacao.sistema.id]"
+                      class="min-w-0 font-semibold break-words text-ink hover:text-brand-700 hover:underline hover:underline-offset-2 dark:hover:text-white"
+                      [title]="'Abrir os itens de ' + apresentacao.sistema.nome"
+                    >
+                      {{ apresentacao.sistema.nome }}{{ apresentacao.sistema.versao ? ' · v' + apresentacao.sistema.versao : '' }}
+                    </a>
+                    @if (apresentacao.complemento) {
+                      <span class="rounded-md bg-brand-100 px-1.5 py-0.5 text-[11px] font-semibold text-brand-800 dark:bg-brand-900 dark:text-brand-200">{{ apresentacao.complemento }}</span>
+                    }
+                    @if (aoVivo) {
+                      <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30">
+                        <span class="relative flex size-1.5"><span class="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75"></span><span class="relative inline-flex size-1.5 rounded-full bg-emerald-500"></span></span>
+                        Agora
+                      </span>
+                    }
+                    @if (papel) {
+                      <span class="rounded-full bg-brand-600 px-2 py-0.5 text-[11px] font-semibold text-white dark:bg-brand-500">{{ papel }}</span>
+                    }
+                  </div>
+
+                  <div class="mt-2 flex flex-wrap gap-1.5 sm:gap-2 lg:mt-0 lg:grid lg:w-[30rem] lg:shrink-0 lg:grid-cols-2">
+                    @if (apresentacao.apresentador; as pessoa) {
+                      <span class="inline-flex max-w-full min-w-0 items-center gap-2 rounded-full border bg-surface lg:w-full py-0.5 pr-3 pl-0.5 text-xs" [class]="souEu(pessoa.id) ? 'border-brand-400 dark:border-brand-500' : 'border-line'">
+                        <span class="grid size-6 shrink-0 place-items-center rounded-full bg-brand-600 text-[10px] font-bold text-white dark:bg-brand-500" aria-hidden="true">{{ iniciais(pessoa.nomeCompleto) }}</span>
+                        <span class="truncate font-medium text-ink-soft" [title]="pessoa.nomeCompleto">{{ pessoa.nomeCompleto }}</span>
+                        <span class="ml-auto shrink-0 text-muted lg:hidden">Apresentador</span>
+                      </span>
+                    } @else {
+                      <span class="inline-flex items-center rounded-full border border-dashed border-line-strong px-3 py-1 text-xs lg:w-full text-muted">Sem apresentador</span>
+                    }
+                    @if (apresentacao.apoio; as pessoa) {
+                      <span class="inline-flex max-w-full min-w-0 items-center gap-2 rounded-full border bg-surface lg:w-full py-0.5 pr-3 pl-0.5 text-xs" [class]="souEu(pessoa.id) ? 'border-brand-400 dark:border-brand-500' : 'border-line'">
+                        <span class="grid size-6 shrink-0 place-items-center rounded-full bg-brand-100 text-[10px] font-bold text-brand-700 dark:bg-brand-900 dark:text-brand-200" aria-hidden="true">{{ iniciais(pessoa.nomeCompleto) }}</span>
+                        <span class="truncate font-medium text-ink-soft" [title]="pessoa.nomeCompleto">{{ pessoa.nomeCompleto }}</span>
+                        <span class="ml-auto shrink-0 text-muted lg:hidden">Apoio</span>
+                      </span>
+                    } @else {
+                      <span class="inline-flex items-center rounded-full border border-dashed border-line-strong px-3 py-1 text-xs lg:w-full text-faint">Sem apoio</span>
+                    }
+                  </div>
+                </div>
+
+                <!-- Ações -->
+                <div class="col-start-2 row-start-1 -my-1 -mr-2 flex items-start gap-0.5 sm:col-start-3 sm:items-center">
+                  <button type="button" class="btn btn-ghost p-2 text-muted hover:text-ink" title="Editar" [attr.aria-label]="'Editar ' + nomeNaAgenda(apresentacao)" (click)="editar(apresentacao)">
+                    <app-icone nome="editar" [tamanho]="16" />
+                  </button>
+                  <button type="button" class="btn btn-ghost p-2 text-muted hover:text-rose-600 dark:hover:text-rose-300" title="Remover" [attr.aria-label]="'Remover ' + nomeNaAgenda(apresentacao)" (click)="remover(apresentacao)">
+                    <app-icone nome="lixeira" [tamanho]="16" />
+                  </button>
+                </div>
+              </li>
+            }
+          </ol>
+        </section>
+      }
+    </div>
+  }
+</main>
+
+<app-modal [titulo]="edicao()?.apresentacao ? 'Editar apresentação' : 'Nova apresentação'" [aberto]="!!edicao()" (fechado)="edicao.set(null)">
+  @if (edicao(); as atual) {
+    <app-apresentacao-form
+      [apresentacao]="atual.apresentacao"
+      [sugestao]="atual.sugestao"
+      [existentes]="apresentacoes()"
+      [salvando]="salvando()"
+      (salvar)="salvar($event)"
+      (cancelar)="edicao.set(null)"
+    />
+  }
+</app-modal>
+
+<app-voltar-topo [alvo]="cabecalho" />

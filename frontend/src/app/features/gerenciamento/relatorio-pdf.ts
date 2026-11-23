@@ -1,11 +1,19 @@
-import type {
-  Content,
-  ContentStack,
-  ContentTable,
-  CustomTableLayout,
-  TableCell,
-  TDocumentDefinitions,
-} from 'pdfmake/interfaces';
+import type { Content, ContentStack, ContentTable, TableCell, TDocumentDefinitions } from 'pdfmake/interfaces';
+import {
+  BASE_DOCUMENTO,
+  COR,
+  LARGURA_UTIL,
+  cabecalhoPaginas,
+  cartoesResumo,
+  descreverGeracao,
+  faixaTitulo,
+  fundoFaixa,
+  gerarPdf,
+  layoutSemBordas,
+  layoutTabela,
+  rodapePaginas,
+  tituloSecao,
+} from '../../core/pdf';
 import {
   STATUS,
   TIPOS,
@@ -17,10 +25,7 @@ import {
 import type { Categoria, Item, Resumo, Sistema, StatusItem } from '../../core/models';
 import type { Situacao } from './painel-meta';
 
-/**
- * Relatório de conformidade em PDF, gerado no navegador com pdfmake.
- * O pdfmake (~1 MB com as fontes) é carregado sob demanda para não pesar no bundle inicial.
- */
+/** Relatório de conformidade em PDF, gerado no navegador com pdfmake (ver `core/pdf.ts`). */
 
 export interface DadosRelatorio {
   sistema: Sistema;
@@ -33,24 +38,6 @@ export interface DadosRelatorio {
   /** Quem assina esta via do relatório; `null` = linha de assinatura sem nome. */
   responsavel: string | null;
 }
-
-/** Mesma escala de azul da marca de `styles.css`. */
-const COR = {
-  brand950: '#0b1f4d',
-  brand900: '#172d6b',
-  brand800: '#1e3a8a',
-  brand600: '#1d4ed8',
-  brand300: '#93c5fd',
-  brand200: '#bfdbfe',
-  brand100: '#dbe8fe',
-  brand50: '#eff5ff',
-  ink: '#0f1f3d',
-  inkSoft: '#2c3e60',
-  muted: '#5a6a88',
-  faint: '#8592ab',
-  line: '#dce4ef',
-  branco: '#ffffff',
-};
 
 const COR_STATUS: Record<StatusItem, { texto: string; fundo: string | undefined }> = {
   ATENDE: { texto: '#047857', fundo: '#ecfdf5' },
@@ -65,59 +52,12 @@ const COR_SITUACAO: Record<Situacao, { texto: string; fundo: string; borda: stri
   vazio: { texto: COR.muted, fundo: COR.brand50, borda: COR.line },
 };
 
-const MARGEM_X = 40;
-const ALTURA_FAIXA = 132;
-
-type PdfMake = typeof import('pdfmake/build/pdfmake');
-
-let pdfMake: Promise<PdfMake> | null = null;
-let logo: Promise<string | null> | null = null;
-
-function carregarPdfMake(): Promise<PdfMake> {
-  pdfMake ??= Promise.all([import('pdfmake/build/pdfmake'), import('pdfmake/build/vfs_fonts')])
-    .then(([modulo, fontes]) => {
-      // Os dois pacotes são CommonJS: dependendo do empacotamento o conteúdo vem em `default`.
-      const instancia = ('default' in modulo ? modulo.default : modulo) as PdfMake;
-      instancia.addVirtualFileSystem('default' in fontes ? fontes.default : fontes);
-      return instancia;
-    })
-    .catch((erro) => {
-      pdfMake = null;
-      throw erro;
-    });
-  return pdfMake;
-}
-
-/** Logo (PNG branco com transparência) como data URL; `null` se não puder ser carregada. */
-function carregarLogo(): Promise<string | null> {
-  logo ??= fetch('/image.png')
-    .then((resposta) =>
-      resposta.ok ? resposta.blob() : Promise.reject(new Error(String(resposta.status))),
-    )
-    .then(
-      (blob) =>
-        new Promise<string>((resolver, rejeitar) => {
-          const leitor = new FileReader();
-          leitor.onload = () => resolver(leitor.result as string);
-          leitor.onerror = () => rejeitar(leitor.error);
-          leitor.readAsDataURL(blob);
-        }),
-    )
-    .catch(() => {
-      logo = null;
-      return null;
-    });
-  return logo;
-}
-
-export async function gerarRelatorioPdf(dados: DadosRelatorio): Promise<Blob> {
-  const [pdf, imagemLogo] = await Promise.all([carregarPdfMake(), carregarLogo()]);
-  return pdf.createPdf(montarDocumento(dados, imagemLogo, new Date())).getBlob();
+export function gerarRelatorioPdf(dados: DadosRelatorio): Promise<Blob> {
+  return gerarPdf((imagemLogo) => montarDocumento(dados, imagemLogo, new Date()));
 }
 
 // ----- Documento -----
 
-const formatoGeracao = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 /** "19 de novembro de 2026" (data local do dia em que o relatório é gerado). */
 const formatoDataExtenso = new Intl.DateTimeFormat('pt-BR', {
   day: 'numeric',
@@ -132,71 +72,21 @@ function montarDocumento(
 ): TDocumentDefinitions {
   const { sistema } = dados;
   const nomeCompleto = sistema.nome + (sistema.versao ? ` · v${sistema.versao}` : '');
-  const quando = formatoGeracao.format(geradoEm).replace(', ', ' às ');
+  const quando = descreverGeracao(geradoEm);
 
   return {
-    pageSize: 'A4',
-    pageMargins: [MARGEM_X, 54, MARGEM_X, 50],
+    ...BASE_DOCUMENTO,
     info: {
       title: `Relatório de conformidade · ${nomeCompleto}${dados.responsavel ? ` · ${dados.responsavel}` : ''}`,
       author: 'Eddydata',
       subject: 'Itens do edital',
     },
-    defaultStyle: { font: 'Roboto', fontSize: 9, color: COR.ink, lineHeight: 1.2 },
-    styles: {
-      secao: { fontSize: 12, bold: true, color: COR.brand900 },
-      rotulo: { fontSize: 7.5, bold: true, color: COR.muted, characterSpacing: 0.4 },
-      cabecalhoTabela: { fontSize: 7.5, bold: true, color: COR.brand900, characterSpacing: 0.3 },
-    },
-
-    background: (pagina, tamanho) =>
-      pagina === 1
-        ? {
-            canvas: [
-              { type: 'rect', x: 0, y: 0, w: tamanho.width, h: ALTURA_FAIXA, color: COR.brand950 },
-            ],
-          }
-        : null,
-
-    header: (pagina) =>
-      pagina === 1
-        ? null
-        : {
-            margin: [MARGEM_X, 22, MARGEM_X, 0],
-            stack: [
-              {
-                columns: [
-                  { text: nomeCompleto, bold: true, color: COR.brand800, fontSize: 8 },
-                  {
-                    text: 'Relatório de conformidade do edital',
-                    alignment: 'right',
-                    color: COR.muted,
-                    fontSize: 8,
-                  },
-                ],
-              },
-              linha(COR.brand200, 4),
-            ],
-          },
-
-    footer: (pagina, total) => ({
-      margin: [MARGEM_X, 14, MARGEM_X, 0],
-      stack: [
-        linha(COR.line, 0),
-        {
-          margin: [0, 6, 0, 0],
-          fontSize: 7.5,
-          color: COR.faint,
-          columns: [
-            { text: `Gerado em ${quando}` },
-            { text: `Página ${pagina} de ${total}`, alignment: 'right' },
-          ],
-        },
-      ],
-    }),
+    background: fundoFaixa,
+    header: cabecalhoPaginas(nomeCompleto, 'Relatório de conformidade do edital'),
+    footer: rodapePaginas(quando),
 
     content: [
-      faixaTitulo(sistema, nomeCompleto, imagemLogo, quando),
+      faixaSistema(sistema, nomeCompleto, imagemLogo, quando),
       secaoInformacoes(sistema, nomeCompleto, dados.responsavel),
       secaoResumo(dados),
       secaoVisaoGrupos(dados),
@@ -207,7 +97,7 @@ function montarDocumento(
 }
 
 /** Conteúdo sobre a faixa azul da primeira página. */
-function faixaTitulo(
+function faixaSistema(
   sistema: Sistema,
   nomeCompleto: string,
   imagemLogo: string | null,
@@ -216,48 +106,13 @@ function faixaTitulo(
   const subtitulo = [sistema.numero ? `Edital ${sistema.numero}` : null, sistema.orgao]
     .filter(Boolean)
     .join(' · ');
-  return {
-    margin: [0, -22, 0, 0],
-    // Altura fixa para o conteúdo seguinte começar sempre abaixo da faixa.
-    table: {
-      widths: [imagemLogo ? 104 : 0, '*'],
-      heights: [ALTURA_FAIXA - 54 + 22 - 8],
-      body: [
-        [
-          imagemLogo ? { image: imagemLogo, fit: [96, 60], margin: [0, 2, 0, 0] } : { text: '' },
-          {
-            margin: [12, 0, 0, 0],
-            stack: [
-              {
-                text: 'RELATÓRIO DE CONFORMIDADE DO EDITAL',
-                fontSize: 7.5,
-                bold: true,
-                color: COR.brand300,
-                characterSpacing: 1,
-              },
-              {
-                text: nomeCompleto,
-                fontSize: 18,
-                bold: true,
-                color: COR.branco,
-                margin: [0, 4, 0, 0],
-              },
-              subtitulo
-                ? { text: subtitulo, fontSize: 9.5, color: COR.brand200, margin: [0, 3, 0, 0] }
-                : { text: '' },
-              {
-                text: `Emitido em ${quando}`,
-                fontSize: 8,
-                color: COR.brand300,
-                margin: [0, 6, 0, 0],
-              },
-            ],
-          },
-        ],
-      ],
-    },
-    layout: 'noBorders',
-  };
+  return faixaTitulo({
+    sobrelinha: 'RELATÓRIO DE CONFORMIDADE DO EDITAL',
+    titulo: nomeCompleto,
+    subtitulo: subtitulo || null,
+    quando,
+    imagemLogo,
+  });
 }
 
 function secaoInformacoes(
@@ -342,36 +197,7 @@ function secaoResumo({ resumo, meta, situacao, listas }: DadosRelatorio): Conten
     margin: [0, 20, 0, 0],
     stack: [
       tituloSecao('Resumo da avaliação'),
-      {
-        table: {
-          widths: ['*', '*', '*', '*'],
-          body: [
-            cartoes.map(([rotulo, valor, detalhe]) => ({
-              fillColor: COR.brand50,
-              stack: [
-                { text: rotulo, style: 'rotulo' },
-                {
-                  text: valor,
-                  fontSize: 16,
-                  bold: true,
-                  color: COR.brand800,
-                  margin: [0, 3, 0, 1],
-                },
-                { text: detalhe, fontSize: 7.5, color: COR.muted },
-              ],
-            })),
-          ],
-        },
-        layout: {
-          hLineWidth: () => 0,
-          vLineWidth: (i, no) => (i === 0 || i === no.table.widths!.length ? 0 : 6),
-          vLineColor: () => COR.branco,
-          paddingLeft: () => 9,
-          paddingRight: () => 9,
-          paddingTop: () => 8,
-          paddingBottom: () => 8,
-        },
-      },
+      cartoesResumo(cartoes),
       {
         margin: [0, 8, 0, 0],
         table: {
@@ -508,17 +334,6 @@ function tabelaGrupo(grupo: GrupoRelatorio): ContentTable {
       {
         stack: [
           { text: item.descricao, color: COR.ink },
-          ...(item.observacao?.trim()
-            ? [
-                {
-                  text: `Obs.: ${item.observacao.trim()}`,
-                  italics: true,
-                  fontSize: 8,
-                  color: COR.muted,
-                  margin: [0, 2, 0, 0],
-                } as Content,
-              ]
-            : []),
         ],
       },
       {
@@ -566,45 +381,12 @@ function tabelaGrupo(grupo: GrupoRelatorio): ContentTable {
 
 // ----- Auxiliares -----
 
-const layoutSemBordas: CustomTableLayout = {
-  hLineWidth: () => 0,
-  vLineWidth: () => 0,
-  paddingLeft: () => 0,
-  paddingRight: () => 12,
-};
-
-/** Tabela zebrada; as `cabecalhos` primeiras linhas ficam com fundo azul claro (a barra do grupo tem fundo próprio). */
-function layoutTabela(cabecalhos: number): CustomTableLayout {
-  return {
-    hLineWidth: (i, no) => (i === 0 || i === no.table.body.length ? 0.8 : 0.5),
-    vLineWidth: () => 0,
-    hLineColor: (i) => (i <= cabecalhos ? COR.brand200 : COR.line),
-    fillColor: (linha) =>
-      linha === cabecalhos - 1
-        ? COR.brand100
-        : linha >= cabecalhos && (linha - cabecalhos) % 2 === 1
-          ? COR.brand50
-          : null,
-    paddingLeft: () => 7,
-    paddingRight: () => 7,
-    paddingTop: () => 5,
-    paddingBottom: () => 5,
-  };
-}
-
 function campo(rotulo: string, valor: string): ContentStack {
   return {
     stack: [
       { text: rotulo, style: 'rotulo' },
       { text: valor, fontSize: 10, color: COR.ink, margin: [0, 2, 0, 0] },
     ],
-  };
-}
-
-function tituloSecao(texto: string, margemTopo = 0): ContentStack {
-  return {
-    margin: [0, margemTopo, 0, 8],
-    stack: [{ text: texto, style: 'secao' }, linha(COR.brand600, 4, 36, 2)],
   };
 }
 
@@ -638,8 +420,8 @@ function secaoAssinatura(sistema: Sistema, responsavel: string | null, geradoEm:
                 lineColor: COR.ink,
               },
             ],
-            // Centraliza a linha na largura útil da página (515pt).
-            margin: [(515.28 - larguraLinha) / 2, 0, 0, 0],
+            // Centraliza a linha na largura útil da página.
+            margin: [(LARGURA_UTIL - larguraLinha) / 2, 0, 0, 0],
           },
           {
             text: responsavel ?? ' ',
@@ -653,14 +435,5 @@ function secaoAssinatura(sistema: Sistema, responsavel: string | null, geradoEm:
         ],
       },
     ],
-  };
-}
-
-function linha(cor: string, margemTopo: number, largura = 515.28, espessura = 0.6): Content {
-  return {
-    canvas: [
-      { type: 'line', x1: 0, y1: 0, x2: largura, y2: 0, lineWidth: espessura, lineColor: cor },
-    ],
-    margin: [0, margemTopo, 0, 0],
   };
 }

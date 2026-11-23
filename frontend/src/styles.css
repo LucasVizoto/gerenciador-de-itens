@@ -1,3 +1,9 @@
+/*
+ * O CDK injeta em runtime `@layer cdk-resets { .cdk-drag-preview { padding: 0; ... } }`. Camadas
+ * declaradas depois ganham das anteriores, então esse reset venceria as utilities do Tailwind
+ * (o `p-5` do card sumia no preview do arrastar). Declarada aqui primeiro, ela fica por baixo.
+ */
+@layer cdk-resets;
 @import 'tailwindcss';
 
 /*

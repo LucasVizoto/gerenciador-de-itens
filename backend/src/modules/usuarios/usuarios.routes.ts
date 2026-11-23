@@ -14,8 +14,17 @@ const corpoRedefinicao = z.object({
   senha: z.string().min(6, 'A senha provisória deve ter pelo menos 6 caracteres').max(200),
 });
 
-/** Gestão de usuários: exclusiva de administradores. */
+/** Gestão de usuários: exclusiva de administradores (exceto a lista resumida de ativos). */
 export async function usuariosRoutes(app: FastifyInstance) {
+  /** Nome dos usuários ativos, para qualquer usuário logado escolher apresentador/apoio na agenda. */
+  app.get('/usuarios/ativos', async () =>
+    prisma.usuario.findMany({
+      where: { ativo: true },
+      select: { id: true, nomeCompleto: true },
+      orderBy: { nomeCompleto: 'asc' },
+    }),
+  );
+
   app.get('/usuarios', async (request) => {
     exigirAdmin(request);
     // Pendentes de aprovação (inativos) primeiro, para o administrador encontrá-los logo.

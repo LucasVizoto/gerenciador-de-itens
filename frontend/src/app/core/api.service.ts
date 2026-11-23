@@ -2,11 +2,14 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom, type Observable } from 'rxjs';
 import type {
+  Apresentacao,
   Categoria,
+  DadosApresentacao,
   DadosItem,
   DadosSistema,
   Item,
   PosicaoItem,
+  PessoaResumo,
   ResultadoImportacao,
   SistemaComResponsaveis,
   SistemaComResumo,
@@ -73,6 +76,16 @@ export class ApiService {
     return this.enviar(this.http.put<SistemaComResponsaveis>(`${API}/sistemas/${id}`, dados));
   }
 
+  /** Ordem personalizada: `ids` na nova ordem (pode ser só parte dos sistemas, ex.: favoritos). */
+  reordenarSistemas(ids: string[]) {
+    return this.enviar(this.http.put<Array<{ id: string; ordem: number }>>(`${API}/sistemas/ordem`, { ids }));
+  }
+
+  /** Ordem pessoal da página Favoritos (só do usuário logado). */
+  reordenarFavoritos(ids: string[]) {
+    return this.enviar(this.http.put<Array<{ id: string; ordem: number }>>(`${API}/sistemas/favoritos/ordem`, { ids }));
+  }
+
   removerSistema(id: string) {
     return this.enviar(this.http.delete<void>(`${API}/sistemas/${id}`));
   }
@@ -136,6 +149,28 @@ export class ApiService {
     return this.enviar(
       this.http.put<{ atualizados: number }>(`${API}/sistemas/${sistemaId}/itens/ordem`, { itens }),
     );
+  }
+
+  /** Usuários ativos (id + nome), disponível para qualquer usuário logado. */
+  listarPessoas() {
+    return this.enviar(this.http.get<PessoaResumo[]>(`${API}/usuarios/ativos`));
+  }
+
+  listarApresentacoes(somenteMinhas = false) {
+    const params = somenteMinhas ? { minhas: 'true' } : undefined;
+    return this.enviar(this.http.get<Apresentacao[]>(`${API}/apresentacoes`, { params }));
+  }
+
+  criarApresentacao(dados: DadosApresentacao) {
+    return this.enviar(this.http.post<Apresentacao>(`${API}/apresentacoes`, dados));
+  }
+
+  atualizarApresentacao(id: string, dados: DadosApresentacao) {
+    return this.enviar(this.http.put<Apresentacao>(`${API}/apresentacoes/${id}`, dados));
+  }
+
+  removerApresentacao(id: string) {
+    return this.enviar(this.http.delete<void>(`${API}/apresentacoes/${id}`));
   }
 
   importarCsv(sistemaId: string, arquivo: File) {

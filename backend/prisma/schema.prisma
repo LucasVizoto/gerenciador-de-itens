@@ -41,10 +41,13 @@ model Sistema {
   dataApresentacao DateTime?         @map("data_apresentacao") @db.Date
   /// Percentual mínimo de itens essenciais atendidos.
   metaPercentual   Int               @default(85) @map("meta_percentual")
+  /// Posição na "Ordem personalizada" da listagem (a mesma para todos os usuários).
+  ordem            Int               @default(0)
   categorias       Categoria[]
   itens            Item[]
   favoritos        UsuarioFavorito[]
   responsaveis     Responsavel[]
+  apresentacoes    Apresentacao[]
   criadoEm         DateTime          @default(now()) @map("criado_em")
   atualizadoEm     DateTime          @updatedAt @map("atualizado_em")
 
@@ -117,6 +120,8 @@ model Usuario {
   trocarSenha   Boolean           @default(false) @map("trocar_senha")
   sessoes       Sessao[]
   favoritos     UsuarioFavorito[]
+  apresentando  Apresentacao[]    @relation("Apresentador")
+  apoiando      Apresentacao[]    @relation("Apoio")
   criadoEm      DateTime          @default(now()) @map("criado_em")
   atualizadoEm  DateTime          @updatedAt @map("atualizado_em")
 
@@ -142,9 +147,38 @@ model UsuarioFavorito {
   usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   sistemaId String   @map("sistema_id") @db.Uuid
   sistema   Sistema  @relation(fields: [sistemaId], references: [id], onDelete: Cascade)
+  /// Posição na ordem pessoal da página Favoritos (cada usuário tem a sua).
+  ordem     Int      @default(0)
   criadoEm  DateTime @default(now()) @map("criado_em")
 
   @@id([usuarioId, sistemaId])
   @@index([sistemaId])
   @@map("usuario_favoritos")
+}
+
+/// Apresentação agendada de um sistema (cronograma oficial do edital).
+model Apresentacao {
+  id             String   @id @default(uuid()) @db.Uuid
+  sistemaId      String   @map("sistema_id") @db.Uuid
+  sistema        Sistema  @relation(fields: [sistemaId], references: [id], onDelete: Cascade)
+  /// Complemento do nome na agenda (ex.: "Parte 1").
+  complemento    String?
+  /// Bloco temático do dia (ex.: "PLANEJAMENTO, EXECUÇÃO ORÇAMENTÁRIA E CONTÁBIL").
+  tema           String?
+  data           DateTime @db.Date
+  /// "HH:MM" (24h). Texto simples: campo só de hora não deve sofrer com fuso horário.
+  inicio         String
+  fim            String
+  /// Obrigatório na API; nulo só se o usuário for excluído depois.
+  apresentadorId String?  @map("apresentador_id") @db.Uuid
+  apresentador   Usuario? @relation("Apresentador", fields: [apresentadorId], references: [id], onDelete: SetNull)
+  apoioId        String?  @map("apoio_id") @db.Uuid
+  apoio          Usuario? @relation("Apoio", fields: [apoioId], references: [id], onDelete: SetNull)
+  criadoEm       DateTime @default(now()) @map("criado_em")
+  atualizadoEm   DateTime @updatedAt @map("atualizado_em")
+
+  @@index([data, inicio])
+  @@index([apresentadorId])
+  @@index([apoioId])
+  @@map("apresentacoes")
 }

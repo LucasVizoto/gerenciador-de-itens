@@ -508,17 +508,6 @@ function tabelaGrupo(grupo: GrupoRelatorio): ContentTable {
       {
         stack: [
           { text: item.descricao, color: COR.ink },
-          ...(item.observacao?.trim()
-            ? [
-                {
-                  text: `Obs.: ${item.observacao.trim()}`,
-                  italics: true,
-                  fontSize: 8,
-                  color: COR.muted,
-                  margin: [0, 2, 0, 0],
-                } as Content,
-              ]
-            : []),
         ],
       },
       {
